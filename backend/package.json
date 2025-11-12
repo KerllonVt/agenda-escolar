@@ -1,12 +1,11 @@
 {
-  "name": "backend",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "type": "module",
+  "name": "Agenda Escolar Interativa Design",
+  "version": "0.1.0",
+  "private": true,
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon index.js"
+    "dev": "vite",
+    "build": "vite build",
+    "postinstall": "cd backend && npm install"  
   },
   "keywords": [],
   "author": "",
