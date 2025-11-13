@@ -9,6 +9,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'sonner';
 import { Aula } from '../types';
 
+// URL da nossa API (configurada para Vercel)
 const API_URL = '/api';
 
 type AulaCompleta = Aula & {

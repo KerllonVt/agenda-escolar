@@ -12,9 +12,9 @@ import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
 import { TipoAula } from '../types';
 
-const API_URL =   '/api';
+// URL da nossa API (configurada para Vercel)
+const API_URL = '/api';
 
-// Tipo para os vínculos que virão da API
 type VinculoProfessor = {
   id_ptm: number;
   id_turma: number;
@@ -31,12 +31,10 @@ interface CriarAulaProps {
 export function CriarAula({ onBack }: CriarAulaProps) {
   const { token } = useAuth();
   
-  // Estados da API
   const [vinculos, setVinculos] = useState<VinculoProfessor[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   
-  // Estados do Formulário
-  const [selectedVinculo, setSelectedVinculo] = useState(''); // Salva o id_ptm como string
+  const [selectedVinculo, setSelectedVinculo] = useState(''); 
   const [novaAula, setNovaAula] = useState({
     data: '',
     hora: '',
@@ -44,7 +42,6 @@ export function CriarAula({ onBack }: CriarAulaProps) {
     tipo_aula: 'teórica' as TipoAula
   });
 
-  // Buscar os vínculos (turmas/matérias) que o professor leciona
   useEffect(() => {
     const fetchVinculos = async () => {
       setIsLoading(true);
@@ -64,7 +61,6 @@ export function CriarAula({ onBack }: CriarAulaProps) {
     fetchVinculos();
   }, [token]);
 
-  // Salvar a aula
   const handleSalvar = async () => {
     const vinculo = vinculos.find(v => v.id_ptm.toString() === selectedVinculo);
 
@@ -93,7 +89,7 @@ export function CriarAula({ onBack }: CriarAulaProps) {
       if (!response.ok) throw new Error(data.message);
 
       toast.success('Aula criada com sucesso!');
-      onBack(); // Volta para o dashboard
+      onBack(); 
 
     } catch (error: any) {
       toast.error(error.message);
@@ -129,7 +125,6 @@ export function CriarAula({ onBack }: CriarAulaProps) {
           </CardHeader>
           <CardContent className="space-y-6">
             
-            {/* Turma e Matéria (Vínculo) */}
             <div className="space-y-2">
               <Label htmlFor="vinculo">Turma e Matéria *</Label>
               <div className="relative">
@@ -155,7 +150,6 @@ export function CriarAula({ onBack }: CriarAulaProps) {
               </div>
             </div>
 
-            {/* Data e Hora */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="data">Data da Aula *</Label>
@@ -188,7 +182,6 @@ export function CriarAula({ onBack }: CriarAulaProps) {
               </div>
             </div>
 
-            {/* Tipo de Aula */}
             <div className="space-y-2">
               <Label htmlFor="tipo">Tipo de Aula *</Label>
               <Select
@@ -207,7 +200,6 @@ export function CriarAula({ onBack }: CriarAulaProps) {
               </Select>
             </div>
 
-            {/* Assunto */}
             <div className="space-y-2">
               <Label htmlFor="assunto">Assunto da Aula *</Label>
               <Textarea
@@ -220,7 +212,6 @@ export function CriarAula({ onBack }: CriarAulaProps) {
               />
             </div>
 
-            {/* Botões */}
             <div className="flex gap-3 pt-4">
               <Button onClick={handleSalvar} className="flex-1" disabled={isLoading}>
                 {isLoading ? (

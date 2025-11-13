@@ -13,9 +13,9 @@ import { ProfessorTurmaMateria, Usuario, Turma, Materia } from '../types';
 import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
 
-const API_URL =  '/api';
+// URL da nossa API (configurada para Vercel)
+const API_URL = '/api';
 
-// Tipo para o vínculo com dados completos (vindos do JOIN no backend)
 type VinculoCompleto = ProfessorTurmaMateria & {
   nome_professor: string;
   nome_turma: string;
@@ -26,14 +26,12 @@ type VinculoCompleto = ProfessorTurmaMateria & {
 export default function GerenciarProfessoresTurmas() {
   const { token } = useAuth();
   
-  // Estados da API
   const [professores, setProfessores] = useState<Usuario[]>([]);
   const [turmas, setTurmas] = useState<Turma[]>([]);
   const [materias, setMaterias] = useState<Materia[]>([]);
   const [vinculos, setVinculos] = useState<VinculoCompleto[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Estados do Formulário
   const [dialogAberto, setDialogAberto] = useState(false);
   const [novoVinculo, setNovoVinculo] = useState({
     id_professor: 0,
@@ -42,26 +40,19 @@ export default function GerenciarProfessoresTurmas() {
   });
 
   // --- FUNÇÕES DE API ---
-
-  // Função para carregar TODOS os dados iniciais
   const carregarDados = async () => {
     setIsLoading(true);
     try {
-      // Usamos Promise.all para carregar tudo em paralelo
       const [profRes, turmasRes, materiasRes, vinculosRes] = await Promise.all([
-        // 1. Buscar Professores
         fetch(`${API_URL}/users?tipo=professor`, {
           headers: { 'Authorization': `Bearer ${token}` }
         }),
-        // 2. Buscar Turmas
         fetch(`${API_URL}/turmas`, {
           headers: { 'Authorization': `Bearer ${token}` }
         }),
-        // 3. Buscar Matérias
         fetch(`${API_URL}/materias`, {
           headers: { 'Authorization': `Bearer ${token}` }
         }),
-        // 4. Buscar Vínculos
         fetch(`${API_URL}/vinculos`, {
           headers: { 'Authorization': `Bearer ${token}` }
         })
@@ -89,12 +80,10 @@ export default function GerenciarProfessoresTurmas() {
     }
   };
 
-  // Carregar dados quando o componente montar
   useEffect(() => {
     carregarDados();
   }, [token]);
 
-  // Criar Vínculo
   const handleCriarVinculo = async () => {
     if (!novoVinculo.id_professor || !novoVinculo.id_turma || !novoVinculo.id_materia) {
       toast.error('Selecione professor, turma e matéria');
@@ -115,8 +104,8 @@ export default function GerenciarProfessoresTurmas() {
       if (!response.ok) throw new Error(data.message);
 
       toast.success('Vínculo criado com sucesso!');
-      setVinculos([...vinculos, data]); // Adiciona o novo vínculo (já com nomes) à lista
-      setNovoVinculo({ id_professor: 0, id_turma: 0, id_materia: 0 }); // Limpa form
+      setVinculos([...vinculos, data]); 
+      setNovoVinculo({ id_professor: 0, id_turma: 0, id_materia: 0 });
       setDialogAberto(false);
 
     } catch (error: any) {
@@ -124,7 +113,6 @@ export default function GerenciarProfessoresTurmas() {
     }
   };
 
-  // Excluir Vínculo
   const handleExcluirVinculo = async (id: number) => {
     if (!window.confirm('Tem certeza que deseja remover este vínculo?')) return;
 
@@ -138,14 +126,13 @@ export default function GerenciarProfessoresTurmas() {
       if (!response.ok) throw new Error(data.message);
 
       toast.success('Vínculo removido com sucesso!');
-      setVinculos(vinculos.filter(v => v.id_ptm !== id)); // Remove da lista
+      setVinculos(vinculos.filter(v => v.id_ptm !== id)); 
 
     } catch (error: any) {
       toast.error(error.message);
     }
   };
 
-  // Resumo por Professor
   const getVinculosPorProfessor = (professorId: number) => {
     return vinculos.filter(v => v.id_professor === professorId);
   };

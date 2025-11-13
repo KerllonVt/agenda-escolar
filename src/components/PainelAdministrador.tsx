@@ -13,9 +13,9 @@ import { toast } from 'sonner';
 import GerenciarTurmasSeries from './GerenciarTurmasSeries';
 import GerenciarProfessoresTurmas from './GerenciarProfessoresTurmas';
 import { useAuth } from '../contexts/AuthContext';
-import { Usuario, Materia } from '../types'; // Importar Materia
+import { Usuario, Materia } from '../types';
 
-// URL da nossa API
+// URL da nossa API (configurada para Vercel)
 const API_URL = '/api';
 
 interface PainelAdministradorProps {
@@ -35,13 +35,11 @@ export function PainelAdministrador({ onBack }: PainelAdministradorProps) {
     tipo_usuario: 'aluno' as 'aluno' | 'professor' | 'admin'
   });
   
-  // (NOVO) Estados para Matérias
   const [materias, setMaterias] = useState<Materia[]>([]);
   const [novaMateria, setNovaMateria] = useState({ nome_materia: '' });
   const [isLoadingMaterias, setIsLoadingMaterias] = useState(false);
   const [isCreatingMateria, setIsCreatingMateria] = useState(false);
 
-  // Estados de controle da interface
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [errorUsers, setErrorUsers] = useState<string | null>(null);
   const [isCreatingUser, setIsCreatingUser] = useState(false);
@@ -97,7 +95,7 @@ export function PainelAdministrador({ onBack }: PainelAdministradorProps) {
     }
   };
 
-  // --- (NOVAS) Funções API (Matérias) ---
+  // --- Funções API (Matérias) ---
   const fetchMaterias = async () => {
     setIsLoadingMaterias(true);
     try {
@@ -142,7 +140,6 @@ export function PainelAdministrador({ onBack }: PainelAdministradorProps) {
   };
 
   // --- useEffect ---
-  // Controla o carregamento de dados ao mudar de aba
   useEffect(() => {
     if (activeTab === 'usuarios') {
       fetchUsers();
@@ -150,7 +147,7 @@ export function PainelAdministrador({ onBack }: PainelAdministradorProps) {
     if (activeTab === 'materias') {
       fetchMaterias();
     }
-  }, [activeTab, token]); // Roda toda vez que 'activeTab' ou 'token' mudar
+  }, [activeTab, token]);
 
   // --- Funções Auxiliares de Renderização ---
   const getTipoUsuarioBadge = (tipo: string) => {
@@ -163,7 +160,6 @@ export function PainelAdministrador({ onBack }: PainelAdministradorProps) {
   };
 
   const renderUserList = () => {
-    // ... (código idêntico ao anterior, para carregar, mostrar erro ou listar usuários) ...
     if (isLoadingUsers) {
       return (
         <div className="flex justify-center items-center py-10">
@@ -225,7 +221,6 @@ export function PainelAdministrador({ onBack }: PainelAdministradorProps) {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
       {/* Header */}
       <header className="bg-white shadow-sm border-b">
-        {/* ... (código do header idêntico) ... */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center gap-4">
             <Button variant="outline" size="icon" onClick={onBack}>
@@ -247,7 +242,7 @@ export function PainelAdministrador({ onBack }: PainelAdministradorProps) {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Cards de Estatísticas (ainda mock) */}
+        {/* Cards de Estatísticas */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             <Card className="border-2 border-blue-200 bg-blue-50">
                 <CardHeader>
@@ -258,7 +253,6 @@ export function PainelAdministrador({ onBack }: PainelAdministradorProps) {
                 <CardTitle className="text-3xl">{usuarios.filter(u => u.tipo_usuario === 'aluno').length}</CardTitle>
                 </CardHeader>
             </Card>
-
             <Card className="border-2 border-green-200 bg-green-50">
                 <CardHeader>
                 <div className="flex items-center justify-between">
@@ -268,7 +262,6 @@ export function PainelAdministrador({ onBack }: PainelAdministradorProps) {
                 <CardTitle className="text-3xl">{usuarios.filter(u => u.tipo_usuario === 'professor').length}</CardTitle>
                 </CardHeader>
             </Card>
-
             <Card className="border-2 border-purple-200 bg-purple-50">
                 <CardHeader>
                 <div className="flex items-center justify-between">
@@ -278,7 +271,6 @@ export function PainelAdministrador({ onBack }: PainelAdministradorProps) {
                 <CardTitle className="text-3xl">...</CardTitle>
                 </CardHeader>
             </Card>
-
             <Card className="border-2 border-orange-200 bg-orange-50">
                 <CardHeader>
                 <div className="flex items-center justify-between">
@@ -311,13 +303,10 @@ export function PainelAdministrador({ onBack }: PainelAdministradorProps) {
                   <UserCheck className="w-4 h-4 mr-2" />
                   Prof-Turmas
                 </TabsTrigger>
-                
-                {/* --- (MUDANÇA AQUI) --- */}
                 <TabsTrigger value="materias"> 
                   <BookOpen className="w-4 h-4 mr-2" />
                   Matérias
                 </TabsTrigger>
-                
                 <TabsTrigger value="relatorios" disabled>
                   <BarChart3 className="w-4 h-4 mr-2" />
                   Relatórios
@@ -333,7 +322,6 @@ export function PainelAdministrador({ onBack }: PainelAdministradorProps) {
                     <CardTitle className="text-lg">Cadastrar Novo Usuário</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    {/* ... (formulário de usuário idêntico ao anterior) ... */}
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="nome">Nome Completo *</Label>
@@ -397,7 +385,6 @@ export function PainelAdministrador({ onBack }: PainelAdministradorProps) {
                 </div>
               </TabsContent>
 
-              {/* ... (outras abas idênticas) ... */}
               <TabsContent value="turmas-series">
                 <GerenciarTurmasSeries />
               </TabsContent>
@@ -405,7 +392,6 @@ export function PainelAdministrador({ onBack }: PainelAdministradorProps) {
                 <GerenciarProfessoresTurmas />
               </TabsContent>
 
-              {/* --- (NOVO CONTEÚDO AQUI) --- */}
               {/* Tab: Matérias */}
               <TabsContent value="materias" className="space-y-6">
                 <Card className="bg-muted">
@@ -428,7 +414,6 @@ export function PainelAdministrador({ onBack }: PainelAdministradorProps) {
                     </Button>
                   </CardContent>
                 </Card>
-
                 <div>
                   <h3 className="mb-4">Matérias Cadastradas</h3>
                   {isLoadingMaterias ? (
@@ -461,9 +446,14 @@ export function PainelAdministrador({ onBack }: PainelAdministradorProps) {
                   )}
                 </div>
               </TabsContent>
-
-              <TabsContent value="relatorios">
-                {/* ... (código do relatório idêntico) ... */}
+               <TabsContent value="relatorios">
+                <div className="text-center py-12">
+                  <BarChart3 className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
+                  <h3 className="mb-2">Relatórios em Desenvolvimento</h3>
+                  <p className="text-muted-foreground">
+                    Em breve você poderá visualizar relatórios detalhados.
+                  </p>
+                </div>
               </TabsContent>
             </CardContent>
           </Tabs>

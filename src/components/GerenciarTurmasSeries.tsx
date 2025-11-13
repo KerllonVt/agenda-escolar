@@ -14,35 +14,30 @@ import { Turma, Usuario } from '../types';
 import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
 
+// URL da nossa API (configurada para Vercel)
 const API_URL = '/api';
 
-// No backend, a query de turmas agora retorna 'total_alunos'.
-// Vamos ajustar o tipo Turma para refletir isso no frontend.
 type TurmaComAlunos = Turma & {
-  total_alunos: string | number; // Vem do COUNT() do SQL
+  total_alunos: string | number;
 };
 
 export default function GerenciarTurmasSeries() {
-  const { token } = useAuth(); // Pega o token para autenticação
+  const { token } = useAuth();
 
-  // Estados da API
   const [turmas, setTurmas] = useState<TurmaComAlunos[]>([]);
   const [alunos, setAlunos] = useState<Usuario[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Estados do Formulário/Modal
   const [dialogAberto, setDialogAberto] = useState(false);
   const [turmaEditando, setTurmaEditando] = useState<Turma | null>(null);
   const [novaTurma, setNovaTurma] = useState({
     nome_turma: '',
     serie: '',
     ano: '2025',
-    turno: 'Matutino',
+    turno: 'Matutino' as 'Matutino' | 'Vespertino' | 'Noturno',
   });
 
   // --- FUNÇÕES DE API ---
-
-  // Buscar Turmas
   const fetchTurmas = async () => {
     setIsLoading(true);
     try {
@@ -59,7 +54,6 @@ export default function GerenciarTurmasSeries() {
     }
   };
 
-  // Buscar Alunos
   const fetchAlunos = async () => {
     try {
       const response = await fetch(`${API_URL}/users`, {
@@ -67,20 +61,17 @@ export default function GerenciarTurmasSeries() {
       });
       if (!response.ok) throw new Error('Falha ao buscar alunos.');
       const data: Usuario[] = await response.json();
-      // Filtramos apenas os alunos para a tabela de alocação
       setAlunos(data.filter(u => u.tipo_usuario === 'aluno'));
     } catch (error: any) {
       toast.error(error.message);
     }
   };
 
-  // Carregar dados iniciais
   useEffect(() => {
     fetchTurmas();
     fetchAlunos();
-  }, [token]); // Roda quando o componente carrega
+  }, [token]);
 
-  // Handler do formulário (Criar ou Editar)
   const handleSalvarTurma = async () => {
     if (!novaTurma.nome_turma || !novaTurma.serie) {
       toast.error('Preencha todos os campos obrigatórios');
@@ -108,14 +99,13 @@ export default function GerenciarTurmasSeries() {
 
       toast.success(turmaEditando ? 'Turma atualizada!' : 'Turma criada!');
       setDialogAberto(false);
-      fetchTurmas(); // Atualiza a lista de turmas
+      fetchTurmas(); 
       
     } catch (error: any) {
       toast.error(error.message);
     }
   };
 
-  // Excluir Turma
   const handleExcluirTurma = async (id: number) => {
     if (!window.confirm('Tem certeza que deseja excluir esta turma?')) return;
 
@@ -129,15 +119,14 @@ export default function GerenciarTurmasSeries() {
       if (!response.ok) throw new Error(data.message);
       
       toast.success(data.message);
-      fetchTurmas(); // Atualiza a lista
-      fetchAlunos(); // Atualiza lista de alunos (caso estivessem nessa turma)
+      fetchTurmas(); 
+      fetchAlunos(); 
 
     } catch (error: any) {
       toast.error(error.message);
     }
   };
 
-  // Alocar Aluno
   const handleAlocarAluno = async (alunoId: number, turmaId: number | null) => {
     try {
       const response = await fetch(`${API_URL}/users/alocar-turma`, {
@@ -153,13 +142,12 @@ export default function GerenciarTurmasSeries() {
       if (!response.ok) throw new Error(data.message);
 
       toast.success('Aluno alocado com sucesso!');
-      // Atualiza o estado local do aluno
       setAlunos(alunos.map(a => 
         a.id_usuario === alunoId 
           ? { ...a, id_turma: turmaId ?? undefined } 
           : a
       ));
-      fetchTurmas(); // Atualiza a contagem de alunos nas turmas
+      fetchTurmas(); 
       
     } catch (error: any) {
       toast.error(error.message);
@@ -179,7 +167,7 @@ export default function GerenciarTurmasSeries() {
       nome_turma: turma.nome_turma,
       serie: turma.serie,
       ano: turma.ano,
-      turno: turma.turno,
+      turno: turma.turno as 'Matutino' | 'Vespertino' | 'Noturno',
     });
     setDialogAberto(true);
   };
@@ -303,7 +291,6 @@ export default function GerenciarTurmasSeries() {
                       <Badge variant="outline">{turma.turno}</Badge>
                     </TableCell>
                     <TableCell>
-                      {/* Usamos o total_alunos vindo da API */}
                       <Badge>{turma.total_alunos} alunos</Badge>
                     </TableCell>
                     <TableCell className="text-right">

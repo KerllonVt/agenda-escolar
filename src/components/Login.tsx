@@ -13,7 +13,7 @@ interface LoginProps {
   onLoginSuccess: () => void;
 }
 
-// URL da nossa API (backend) que está rodando localmente
+// A URL base da nossa API (configurada para Vercel)
 const API_URL = '/api';
 
 export function Login({ onLoginSuccess }: LoginProps) {
@@ -21,21 +21,19 @@ export function Login({ onLoginSuccess }: LoginProps) {
   const [senha, setSenha] = useState('');
   const [tipo, setTipo] = useState<'aluno' | 'professor' | 'admin'>('aluno');
   
-  // Estados para controlar o carregamento e erros
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  // Pegamos a função 'login' do nosso contexto
   const { login } = useAuth();
 
   const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault(); // Impede o recarregamento da página
-    setIsLoading(true); // Ativa o "carregando..."
-    setError(null);     // Limpa erros antigos
+    e.preventDefault(); 
+    setIsLoading(true); 
+    setError(null);
 
     try {
-      // 1. Chamar a API do nosso backend
-      const response = await fetch(`${API_URL}/login`, {
+      // 1. Chamar a API (com a rota correta /auth/login)
+      const response = await fetch(`${API_URL}/auth/login`, { // <-- URL de Vercel
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -47,30 +45,26 @@ export function Login({ onLoginSuccess }: LoginProps) {
         }),
       });
 
-      // 2. Ler a resposta da API
       const data = await response.json();
 
-      // 3. Verificar se a API retornou um erro
       if (!response.ok) {
         throw new Error(data.message || 'Erro ao tentar fazer login');
       }
 
-      // 4. Se deu certo (temos token e usuário)
       toast.success('Login realizado com sucesso!');
-      
-      // 5. Usar a função login do AuthContext para salvar o usuário e o token
       login(data.usuario, data.token); 
-      
-      onLoginSuccess(); // Navegar para o Dashboard
+      onLoginSuccess(); 
 
     } catch (err: any) {
-      // 6. Se deu errado
       console.error('Falha no login:', err);
-      const errorMessage = err.message || 'Email, senha ou tipo de usuário incorretos';
+      // O erro 'Unexpected token '<'' acontece quando a API retorna 404 (HTML)
+      const errorMessage = err.message?.includes('JSON') 
+        ? 'Erro de API. Verifique o backend.' 
+        : (err.message || 'Email, senha ou tipo de usuário incorretos');
       setError(errorMessage);
       toast.error(errorMessage);
     } finally {
-      setIsLoading(false); // Desativa o "carregando..."
+      setIsLoading(false); 
     }
   };
 
@@ -153,7 +147,6 @@ export function Login({ onLoginSuccess }: LoginProps) {
               </div>
             </div>
 
-            {/* Mensagem de Erro */}
             {error && (
               <div className="text-red-600 text-sm text-center">
                 {error}
@@ -161,7 +154,6 @@ export function Login({ onLoginSuccess }: LoginProps) {
             )}
 
             <Button type="submit" className="w-full" disabled={isLoading}>
-              {/* Mostra um ícone de "girando" enquanto carrega */}
               {isLoading ? (
                 <Loader2 className="w-5 h-5 mr-2 animate-spin" />
               ) : (
