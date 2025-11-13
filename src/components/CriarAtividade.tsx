@@ -1,4 +1,7 @@
-import { ArrowLeft, Calendar as CalendarIcon, FileText, Award, Save, Clock } from 'lucide-react';
+// src/components/CriarAtividade.tsx
+
+import React, { useState, useEffect } from 'react';
+import { ArrowLeft, Calendar as CalendarIcon, FileText, Award, Save, Clock, Loader2 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
@@ -6,50 +9,111 @@ import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Textarea } from './ui/textarea';
 import { Switch } from './ui/switch';
-import { useState } from 'react';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
+import { useAuth } from '../contexts/AuthContext';
+import { Aula } from '../types';
+
+// URL da API (local)
+const API_URL = 'http://localhost:5000/api';
 
 interface CriarAtividadeProps {
   onBack: () => void;
 }
 
+// Tipo estendido para as aulas que vêm da API
+type AulaSimples = Partial<Aula> & {
+  id_aula: number;
+  assunto: string;
+  nome_materia: string;
+  nome_turma: string;
+  data: string;
+};
+
 export function CriarAtividade({ onBack }: CriarAtividadeProps) {
+  const { token } = useAuth();
+  const [aulas, setAulas] = useState<AulaSimples[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  
   const [novaAtividade, setNovaAtividade] = useState({
     id_aula: '',
     descricao: '',
     data_entrega: '',
-    valor_pontos: '100',
+    valor_pontos: '100', // Pontos para gamificação (0-100)
     permite_reenvio: true,
     data_limite_acesso: ''
   });
 
-  // Dados mock - aulas disponíveis
-  const aulas = [
-    { id_aula: 1, assunto: 'Funções Quadráticas', materia: 'Matemática', turma: '3º Ano A', data: '2025-10-13' },
-    { id_aula: 2, assunto: 'Análise Sintática', materia: 'Português', turma: '3º Ano A', data: '2025-10-13' },
-    { id_aula: 3, assunto: 'Segunda Guerra Mundial', materia: 'História', turma: '3º Ano A', data: '2025-10-14' },
-  ];
+  // Busca as aulas do professor para o dropdown
+  useEffect(() => {
+    const fetchAulas = async () => {
+      setIsLoading(true);
+      try {
+        // Usamos a API de agenda para pegar as aulas futuras como base
+        const hoje = new Date().toISOString().split('T')[0];
+        const futuro = new Date();
+        futuro.setDate(futuro.getDate() + 90); // 90 dias no futuro
+        
+        const url = `${API_URL}/aulas?data_inicio=${hoje}&data_fim=${getISODate(futuro)}`;
+        const response = await fetch(url, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!response.ok) throw new Error('Falha ao buscar aulas.');
+        const data = await response.json();
+        setAulas(data);
+      } catch (error: any) {
+        toast.error(error.message);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    if (token) {
+      fetchAulas();
+    }
+  }, [token]);
+  
+  // Função helper para formatar data
+  const getISODate = (date: Date): string => {
+    return date.toISOString().split('T')[0];
+  };
 
-  const handleSalvar = () => {
+  const handleSalvar = async () => {
     if (!novaAtividade.id_aula || !novaAtividade.descricao || !novaAtividade.data_entrega) {
       toast.error('Preencha todos os campos obrigatórios');
       return;
     }
 
-    const pontos = parseInt(novaAtividade.valor_pontos);
-    if (isNaN(pontos) || pontos < 0 || pontos > 100) {
-      toast.error('O valor de pontos deve estar entre 0 e 100');
-      return;
-    }
-
-    // Validar data limite de acesso se fornecida
     if (novaAtividade.data_limite_acesso && novaAtividade.data_limite_acesso < novaAtividade.data_entrega) {
       toast.error('A data limite de acesso deve ser posterior à data de entrega');
       return;
     }
+    
+    setIsLoading(true);
 
-    toast.success('Atividade criada com sucesso!');
-    onBack();
+    try {
+      const response = await fetch(`${API_URL}/atividades`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          ...novaAtividade,
+          id_aula: Number(novaAtividade.id_aula),
+          valor_pontos: Number(novaAtividade.valor_pontos)
+        })
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message);
+
+      toast.success('Atividade criada com sucesso!');
+      onBack();
+
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -78,42 +142,40 @@ export function CriarAtividade({ onBack }: CriarAtividadeProps) {
             <CardTitle>Informações da Atividade</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Aula Relacionada */}
             <div className="space-y-2">
               <Label htmlFor="aula">Vincular à Aula *</Label>
               <Select
                 value={novaAtividade.id_aula}
-                onValueChange={(value) => setNovaAtividade({ ...novaAtividade, id_aula: value })}
+                onValueChange={(value: string) => setNovaAtividade({ ...novaAtividade, id_aula: value })}
+                disabled={isLoading || aulas.length === 0}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Selecione a aula" />
+                  <SelectValue placeholder={
+                    isLoading ? "Carregando aulas..." : "Selecione a aula"
+                  } />
                 </SelectTrigger>
                 <SelectContent>
                   {aulas.map((aula) => (
                     <SelectItem key={aula.id_aula} value={aula.id_aula.toString()}>
-                      {aula.materia} - {aula.assunto} ({aula.turma}) - {new Date(aula.data).toLocaleDateString('pt-BR')}
+                      {aula.nome_materia} - {aula.assunto} ({aula.nome_turma}) - {new Date(aula.data).toLocaleDateString('pt-BR')}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-muted-foreground">
-                A atividade será vinculada a esta aula específica
-              </p>
             </div>
 
-            {/* Descrição */}
             <div className="space-y-2">
               <Label htmlFor="descricao">Descrição da Atividade *</Label>
               <Textarea
                 id="descricao"
                 value={novaAtividade.descricao}
                 onChange={(e) => setNovaAtividade({ ...novaAtividade, descricao: e.target.value })}
-                placeholder="Descreva a atividade que os alunos devem realizar. Ex: Resolver os exercícios 1 a 10 da apostila sobre funções quadráticas"
+                placeholder="Descreva a atividade que os alunos devem realizar..."
                 rows={6}
+                disabled={isLoading}
               />
             </div>
 
-            {/* Data de Entrega e Valor */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="data-entrega">Data Limite de Entrega *</Label>
@@ -126,15 +188,13 @@ export function CriarAtividade({ onBack }: CriarAtividadeProps) {
                     onChange={(e) => setNovaAtividade({ ...novaAtividade, data_entrega: e.target.value })}
                     className="pl-9"
                     min={new Date().toISOString().split('T')[0]}
+                    disabled={isLoading}
                   />
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Prazo para os alunos entregarem
-                </p>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="valor-pontos">Valor em Pontos *</Label>
+                <Label htmlFor="valor-pontos">Valor em Pontos (0-100)</Label>
                 <div className="relative">
                   <Award className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -145,19 +205,15 @@ export function CriarAtividade({ onBack }: CriarAtividadeProps) {
                     className="pl-9"
                     min="0"
                     max="100"
-                    placeholder="0-100"
+                    placeholder="100"
+                    disabled={isLoading}
                   />
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Valor máximo que o aluno pode receber (0-100 pontos)
-                </p>
               </div>
             </div>
 
-            {/* Configurações de Acesso */}
             <div className="space-y-4 border rounded-lg p-4 bg-muted/30">
               <h3 className="text-muted-foreground">Configurações de Acesso</h3>
-              
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
                   <Label htmlFor="permite-reenvio">Permitir Reenvio</Label>
@@ -168,7 +224,8 @@ export function CriarAtividade({ onBack }: CriarAtividadeProps) {
                 <Switch
                   id="permite-reenvio"
                   checked={novaAtividade.permite_reenvio}
-                  onCheckedChange={(checked) => setNovaAtividade({ ...novaAtividade, permite_reenvio: checked })}
+                  onCheckedChange={(checked: boolean) => setNovaAtividade({ ...novaAtividade, permite_reenvio: checked })}
+                  disabled={isLoading}
                 />
               </div>
 
@@ -183,43 +240,22 @@ export function CriarAtividade({ onBack }: CriarAtividadeProps) {
                     onChange={(e) => setNovaAtividade({ ...novaAtividade, data_limite_acesso: e.target.value })}
                     className="pl-9"
                     min={novaAtividade.data_entrega || new Date().toISOString().split('T')[0]}
+                    disabled={isLoading}
                   />
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Após esta data, a atividade ficará indisponível para visualização/envio
-                </p>
               </div>
             </div>
 
-            {/* Info Box */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <div className="flex gap-3">
-                <FileText className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                <div className="text-sm text-blue-900">
-                  <p className="mb-2">
-                    <strong>Como funciona:</strong>
-                  </p>
-                  <ul className="list-disc list-inside space-y-1">
-                    <li>Os alunos verão esta atividade na seção "Minhas Atividades"</li>
-                    <li>Eles poderão enviar respostas em texto e/ou arquivos</li>
-                    <li>{novaAtividade.permite_reenvio ? 'Poderão atualizar o envio até a data limite' : 'Só poderão enviar uma vez'}</li>
-                    <li>Você receberá notificação quando enviarem</li>
-                    <li>Após corrigir, você poderá atribuir a nota e comentários</li>
-                    {novaAtividade.data_limite_acesso && (
-                      <li>A atividade ficará invisível após {new Date(novaAtividade.data_limite_acesso).toLocaleDateString('pt-BR')}</li>
-                    )}
-                  </ul>
-                </div>
-              </div>
-            </div>
-
-            {/* Botões */}
             <div className="flex gap-3 pt-4">
-              <Button onClick={handleSalvar} className="flex-1">
-                <Save className="w-4 h-4 mr-2" />
+              <Button onClick={handleSalvar} className="flex-1" disabled={isLoading}>
+                {isLoading ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Save className="w-4 h-4 mr-2" />
+                )}
                 Criar Atividade
               </Button>
-              <Button variant="outline" onClick={onBack} className="flex-1">
+              <Button variant="outline" onClick={onBack} className="flex-1" disabled={isLoading}>
                 Cancelar
               </Button>
             </div>

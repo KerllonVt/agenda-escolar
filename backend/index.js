@@ -13,7 +13,7 @@ import turmasRoutes from './routes/turmas.js';
 import materiasRoutes from './routes/materias.js';
 import vinculosRoutes from './routes/vinculos.js';
 import aulasRoutes from './routes/aulas.js';
-// import atividadesRoutes from './routes/atividades.js'; // <-- COMENTADO POR ENQUANTO
+import atividadesRoutes from './routes/atividades.js'; // <-- REATIVADO
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -49,7 +49,7 @@ app.use('/api/vinculos', verifyToken, vinculosRoutes);
 
 // === ROTAS PRIVADAS (LOGADO) ===
 app.use('/api/aulas', verifyToken, aulasRoutes);
-// app.use('/api/atividades', verifyToken, atividadesRoutes); // <-- COMENTADO POR ENQUANTO
+app.use('/api/atividades', verifyToken, atividadesRoutes); // <-- REATIVADO
 
 
 // Inicia o servidor
