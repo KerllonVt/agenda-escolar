@@ -1,115 +1,101 @@
-import React, { useState } from 'react';
+// src/components/BoletimAluno.tsx
+
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { Progress } from './ui/progress';
-import { ClipboardList, TrendingUp, Award, AlertCircle } from 'lucide-react';
-import { NotaAvaliacao, TipoAvaliacao } from '../types';
+import { ClipboardList, Award, AlertCircle, Loader2 } from 'lucide-react';
+import { TipoAvaliacao } from '../types';
 import { Alert, AlertDescription } from './ui/alert';
+import { useAuth } from '../contexts/AuthContext';
+import { toast } from 'sonner';
+
+const API_URL = 'http://localhost:5000/api';
+
+// Tipos de dados para o boletim
+type NotaBoletim = {
+  tipo: TipoAvaliacao;
+  nota: string;
+  observacao: string | null;
+  data: string;
+};
+type ConfigBoletim = {
+  tipo: TipoAvaliacao;
+  peso: number;
+};
+type UnidadeBoletim = {
+  unidade: number;
+  media: string | null;
+  notas: NotaBoletim[];
+  configuracoes: ConfigBoletim[];
+};
+type MateriaBoletim = {
+  id_materia: number;
+  nome_materia: string;
+  media_geral: string | null;
+  unidades: UnidadeBoletim[];
+};
 
 export default function BoletimAluno() {
-  const alunoId = 1; // Mock: aluno logado
-  const alunoTurma = 1; // 9° A
-
-  const materias = [
-    { id_materia: 1, nome_materia: 'Matemática' },
-    { id_materia: 2, nome_materia: 'Português' },
-    { id_materia: 3, nome_materia: 'Geografia' },
-    { id_materia: 4, nome_materia: 'História' },
-  ];
-
-  // Configurações de avaliação dos professores
-  const configuracoes = [
-    { id_materia: 1, unidade: 1, tipo_avaliacao: 'prova' as TipoAvaliacao, peso: 40 },
-    { id_materia: 1, unidade: 1, tipo_avaliacao: 'atividade' as TipoAvaliacao, peso: 30 },
-    { id_materia: 1, unidade: 1, tipo_avaliacao: 'trabalho' as TipoAvaliacao, peso: 30 },
-    { id_materia: 2, unidade: 1, tipo_avaliacao: 'prova' as TipoAvaliacao, peso: 50 },
-    { id_materia: 2, unidade: 1, tipo_avaliacao: 'caderno' as TipoAvaliacao, peso: 50 },
-    { id_materia: 3, unidade: 1, tipo_avaliacao: 'prova' as TipoAvaliacao, peso: 60 },
-    { id_materia: 3, unidade: 1, tipo_avaliacao: 'trabalho' as TipoAvaliacao, peso: 40 },
-  ];
-
-  const [notas] = useState<NotaAvaliacao[]>([
-    // Matemática - 1ª Unidade
-    { id_nota: 1, id_aluno: 1, id_professor: 10, id_turma: 1, id_materia: 1, unidade: 1, tipo_avaliacao: 'prova', nota: 8.5, data_lancamento: '2025-03-10', observacao: 'Bom desempenho!' },
-    { id_nota: 2, id_aluno: 1, id_professor: 10, id_turma: 1, id_materia: 1, unidade: 1, tipo_avaliacao: 'atividade', nota: 9.0, data_lancamento: '2025-03-12', observacao: '' },
-    { id_nota: 3, id_aluno: 1, id_professor: 10, id_turma: 1, id_materia: 1, unidade: 1, tipo_avaliacao: 'trabalho', nota: 7.5, data_lancamento: '2025-03-15', observacao: '' },
-    // Português - 1ª Unidade
-    { id_nota: 4, id_aluno: 1, id_professor: 11, id_turma: 1, id_materia: 2, unidade: 1, tipo_avaliacao: 'prova', nota: 7.0, data_lancamento: '2025-03-11', observacao: 'Revisar concordância verbal' },
-    { id_nota: 5, id_aluno: 1, id_professor: 11, id_turma: 1, id_materia: 2, unidade: 1, tipo_avaliacao: 'caderno', nota: 9.5, data_lancamento: '2025-03-14', observacao: 'Caderno completo e organizado!' },
-    // Geografia - 1ª Unidade
-    { id_nota: 6, id_aluno: 1, id_professor: 12, id_turma: 1, id_materia: 3, unidade: 1, tipo_avaliacao: 'prova', nota: 6.5, data_lancamento: '2025-03-13', observacao: '' },
-  ]);
-
+  const { token } = useAuth();
+  
+  const [boletim, setBoletim] = useState<MateriaBoletim[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [unidadeSelecionada, setUnidadeSelecionada] = useState(1);
 
-  const tiposLabel: { [key in TipoAvaliacao]: string } = {
-    prova: 'Prova',
-    teste: 'Teste',
-    trabalho: 'Trabalho',
-    atividade: 'Atividade',
-    caderno: 'Caderno',
-    outro: 'Outro',
-  };
-
-  const calcularMediaMateria = (materiaId: number, unidade: number) => {
-    const notasMateria = notas.filter(
-      n => n.id_aluno === alunoId && n.id_materia === materiaId && n.unidade === unidade
-    );
-
-    if (notasMateria.length === 0) return null;
-
-    const configsMateria = configuracoes.filter(
-      c => c.id_materia === materiaId && c.unidade === unidade
-    );
-
-    let somaPonderada = 0;
-    let somaPesos = 0;
-
-    notasMateria.forEach(nota => {
-      const config = configsMateria.find(c => c.tipo_avaliacao === nota.tipo_avaliacao);
-      if (config) {
-        somaPonderada += nota.nota * (config.peso / 100);
-        somaPesos += config.peso / 100;
+  useEffect(() => {
+    const fetchBoletim = async () => {
+      setIsLoading(true);
+      try {
+        const response = await fetch(`${API_URL}/boletim`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!response.ok) throw new Error('Falha ao buscar boletim.');
+        const data = await response.json();
+        setBoletim(data);
+      } catch (error: any) {
+        toast.error(error.message);
+      } finally {
+        setIsLoading(false);
       }
-    });
+    };
+    if (token) fetchBoletim();
+  }, [token]);
 
-    return somaPesos > 0 ? somaPonderada / somaPesos : null;
+
+  const tiposLabel: { [key in TipoAvaliacao]: string } = {
+    prova: 'Prova', teste: 'Teste', trabalho: 'Trabalho',
+    atividade: 'Atividade', caderno: 'Caderno', outro: 'Outro',
   };
 
-  const calcularMediaGeral = (materiaId: number) => {
-    const medias = [1, 2, 3, 4].map(u => calcularMediaMateria(materiaId, u)).filter(m => m !== null) as number[];
-    if (medias.length === 0) return null;
-    return medias.reduce((sum, m) => sum + m, 0) / medias.length;
-  };
-
-  const getNotasMateria = (materiaId: number) => {
-    return notas.filter(
-      n => n.id_aluno === alunoId && n.id_materia === materiaId && n.unidade === unidadeSelecionada
-    );
-  };
-
-  const getConfigsMateria = (materiaId: number) => {
-    return configuracoes.filter(
-      c => c.id_materia === materiaId && c.unidade === unidadeSelecionada
-    );
-  };
-
-  const getCorMedia = (media: number) => {
-    if (media >= 9) return 'bg-green-500';
+  const getCorMedia = (media: number | null) => {
+    if (media === null) return 'bg-gray-300';
     if (media >= 7) return 'bg-blue-500';
     if (media >= 5) return 'bg-yellow-500';
     return 'bg-red-500';
   };
-
+  
   const mediaGeralTodasMaterias = () => {
-    const medias = materias.map(m => calcularMediaGeral(m.id_materia)).filter(m => m !== null) as number[];
+    const medias = boletim
+      .filter((m): m is MateriaBoletim & { media_geral: string } => m.media_geral !== null)
+      .map(m => parseFloat(m.media_geral))
+      .filter(m => !isNaN(m));
+      
     if (medias.length === 0) return null;
     return medias.reduce((sum, m) => sum + m, 0) / medias.length;
   };
 
   const mediaGeral = mediaGeralTodasMaterias();
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center py-20">
+        <Loader2 className="w-12 h-12 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -121,14 +107,13 @@ export default function BoletimAluno() {
               <ClipboardList className="h-5 w-5 text-blue-600" />
               <CardTitle>Meu Boletim Escolar</CardTitle>
             </div>
-            <CardDescription>Acompanhe suas notas e médias por matéria e unidade</CardDescription>
           </CardHeader>
         </Card>
         <Card className="bg-gradient-to-br from-blue-50 to-purple-50">
           <CardHeader>
             <div className="flex items-center gap-2">
               <Award className="h-5 w-5 text-purple-600" />
-              <CardTitle className="text-base">Média Geral</CardTitle>
+              <CardTitle className="text-base">Média Geral (Global)</CardTitle>
             </div>
           </CardHeader>
           <CardContent>
@@ -136,9 +121,6 @@ export default function BoletimAluno() {
               <div className="text-center">
                 <div className="text-4xl mb-2">{mediaGeral.toFixed(2)}</div>
                 <Progress value={mediaGeral * 10} className="h-2" />
-                <p className="text-xs text-muted-foreground mt-2">
-                  {mediaGeral >= 7 ? 'Excelente!' : mediaGeral >= 5 ? 'Bom!' : 'Precisa melhorar'}
-                </p>
               </div>
             ) : (
               <p className="text-sm text-muted-foreground text-center">Sem notas lançadas</p>
@@ -154,11 +136,9 @@ export default function BoletimAluno() {
             <p>Selecionar Unidade:</p>
             <Select
               value={unidadeSelecionada.toString()}
-              onValueChange={(value) => setUnidadeSelecionada(Number(value))}
+              onValueChange={(value: string) => setUnidadeSelecionada(Number(value))}
             >
-              <SelectTrigger className="w-[200px]">
-                <SelectValue />
-              </SelectTrigger>
+              <SelectTrigger className="w-[200px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="1">1ª Unidade</SelectItem>
                 <SelectItem value="2">2ª Unidade</SelectItem>
@@ -171,14 +151,11 @@ export default function BoletimAluno() {
       </Card>
 
       {/* Notas por Matéria */}
-      {materias.map((materia) => {
-        const notasMateria = getNotasMateria(materia.id_materia);
-        const configsMateria = getConfigsMateria(materia.id_materia);
-        const mediaUnidade = calcularMediaMateria(materia.id_materia, unidadeSelecionada);
-        const mediaGeralMateria = calcularMediaGeral(materia.id_materia);
+      {boletim.map((materia) => {
+        const unidade = materia.unidades.find(u => u.unidade === unidadeSelecionada);
+        if (!unidade) return null; // Não mostra a matéria se não há configs para a unidade
 
-        // Se não há configuração para esta matéria nesta unidade, não exibe
-        if (configsMateria.length === 0) return null;
+        const mediaUnidade = unidade.media ? parseFloat(unidade.media) : null;
 
         return (
           <Card key={materia.id_materia}>
@@ -194,11 +171,11 @@ export default function BoletimAluno() {
                       </Badge>
                     </div>
                   )}
-                  {mediaGeralMateria !== null && (
+                  {materia.media_geral !== null && (
                     <div className="text-right">
                       <p className="text-xs text-muted-foreground">Média Geral</p>
                       <Badge variant="outline">
-                        {mediaGeralMateria.toFixed(2)}
+                        {materia.media_geral}
                       </Badge>
                     </div>
                   )}
@@ -206,24 +183,22 @@ export default function BoletimAluno() {
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Tipos de Avaliação Configurados */}
               <div>
                 <p className="text-sm text-muted-foreground mb-2">Sistema de Avaliação:</p>
                 <div className="flex flex-wrap gap-2">
-                  {configsMateria.map((config, idx) => (
+                  {unidade.configuracoes.map((config, idx) => (
                     <Badge key={idx} variant="outline">
-                      {tiposLabel[config.tipo_avaliacao]}: {config.peso}%
+                      {tiposLabel[config.tipo]}: {config.peso}%
                     </Badge>
                   ))}
                 </div>
               </div>
 
-              {/* Notas Lançadas */}
-              {notasMateria.length > 0 ? (
+              {unidade.notas.length > 0 ? (
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Tipo de Avaliação</TableHead>
+                      <TableHead>Tipo</TableHead>
                       <TableHead>Nota</TableHead>
                       <TableHead>Peso</TableHead>
                       <TableHead>Data</TableHead>
@@ -231,19 +206,20 @@ export default function BoletimAluno() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {notasMateria.map((nota) => {
-                      const config = configsMateria.find(c => c.tipo_avaliacao === nota.tipo_avaliacao);
+                    {unidade.notas.map((nota) => {
+                      const config = unidade.configuracoes.find(c => c.tipo === nota.tipo);
+                      const notaVal = parseFloat(nota.nota);
                       return (
-                        <TableRow key={nota.id_nota}>
-                          <TableCell>{tiposLabel[nota.tipo_avaliacao]}</TableCell>
+                        <TableRow key={nota.tipo}>
+                          <TableCell>{tiposLabel[nota.tipo]}</TableCell>
                           <TableCell>
-                            <Badge variant={nota.nota >= 7 ? "default" : nota.nota >= 5 ? "secondary" : "destructive"}>
-                              {nota.nota.toFixed(1)}
+                            <Badge variant={notaVal >= 7 ? "default" : notaVal >= 5 ? "secondary" : "destructive"}>
+                              {nota.nota}
                             </Badge>
                           </TableCell>
                           <TableCell className="text-muted-foreground">{config?.peso}%</TableCell>
                           <TableCell className="text-sm text-muted-foreground">
-                            {new Date(nota.data_lancamento).toLocaleDateString('pt-BR')}
+                            {new Date(nota.data).toLocaleDateString('pt-BR')}
                           </TableCell>
                           <TableCell className="text-sm text-muted-foreground italic">
                             {nota.observacao || '-'}
@@ -262,7 +238,6 @@ export default function BoletimAluno() {
                 </Alert>
               )}
 
-              {/* Indicador de Progresso */}
               {mediaUnidade !== null && (
                 <div className="p-4 bg-muted/50 rounded-lg">
                   <div className="flex items-center justify-between mb-2">

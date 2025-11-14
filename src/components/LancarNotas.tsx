@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+// src/components/LancarNotas.tsx
+
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -6,77 +8,109 @@ import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { Badge } from './ui/badge';
-import { Textarea } from './ui/textarea';
-import { BookCheck, Save, Eye } from 'lucide-react';
-import { NotaAvaliacao, TipoAvaliacao } from '../types';
-import { toast } from 'sonner@2.0.3';
+import { BookCheck, Save, Loader2 } from 'lucide-react';
+import { NotaAvaliacao, TipoAvaliacao, Usuario, ProfessorTurmaMateria, ConfiguracaoAvaliacao } from '../types';
+import { toast } from 'sonner';
+import { useAuth } from '../contexts/AuthContext';
+
+const API_URL = 'http://localhost:5000/api';
+
+// Tipos locais
+type VinculoProfessor = ProfessorTurmaMateria & { nome_turma: string; serie: string; nome_materia: string; };
 
 export default function LancarNotas() {
-  const professorId = 10;
+  const { token } = useAuth();
 
-  const turmasMaterias = [
-    { id_turma: 1, nome_turma: '9° A', id_materia: 1, nome_materia: 'Matemática' },
-    { id_turma: 2, nome_turma: '9° B', id_materia: 2, nome_materia: 'Português' },
-  ];
+  // Dados da API
+  const [vinculos, setVinculos] = useState<VinculoProfessor[]>([]);
+  const [alunos, setAlunos] = useState<Usuario[]>([]);
+  const [configs, setConfigs] = useState<ConfiguracaoAvaliacao[]>([]);
+  const [notas, setNotas] = useState<NotaAvaliacao[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const alunos = [
-    { id_aluno: 1, nome: 'João Silva', id_turma: 1 },
-    { id_aluno: 2, nome: 'Maria Santos', id_turma: 1 },
-    { id_aluno: 3, nome: 'Carlos Oliveira', id_turma: 1 },
-    { id_aluno: 4, nome: 'Ana Costa', id_turma: 2 },
-    { id_aluno: 5, nome: 'Pedro Alves', id_turma: 2 },
-  ];
+  // Filtros
+  const [selectedVinculo, setSelectedVinculo] = useState(''); // "id_turma-id_materia"
+  const [selectedUnidade, setSelectedUnidade] = useState('1');
+  const [selectedTipo, setSelectedTipo] = useState<TipoAvaliacao | ''>('');
 
-  // Configurações de avaliação disponíveis
-  const configuracoes = [
-    { id_turma: 1, id_materia: 1, unidade: 1, tipo_avaliacao: 'prova' as TipoAvaliacao, peso: 40 },
-    { id_turma: 1, id_materia: 1, unidade: 1, tipo_avaliacao: 'atividade' as TipoAvaliacao, peso: 30 },
-    { id_turma: 1, id_materia: 1, unidade: 1, tipo_avaliacao: 'trabalho' as TipoAvaliacao, peso: 30 },
-    { id_turma: 2, id_materia: 2, unidade: 1, tipo_avaliacao: 'prova' as TipoAvaliacao, peso: 50 },
-    { id_turma: 2, id_materia: 2, unidade: 1, tipo_avaliacao: 'caderno' as TipoAvaliacao, peso: 50 },
-  ];
+  // Estado de lançamento
+  const [notasTemporarias, setNotasTemporarias] = useState<{ [key: number]: { nota: string; observacao: string } }>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [notas, setNotas] = useState<NotaAvaliacao[]>([
-    { id_nota: 1, id_aluno: 1, id_professor: 10, id_turma: 1, id_materia: 1, unidade: 1, tipo_avaliacao: 'prova', nota: 8.5, data_lancamento: '2025-03-10', observacao: '' },
-    { id_nota: 2, id_aluno: 2, id_professor: 10, id_turma: 1, id_materia: 1, unidade: 1, tipo_avaliacao: 'prova', nota: 9.0, data_lancamento: '2025-03-10', observacao: '' },
-  ]);
+  // Carregar dados iniciais (vínculos, configs, alunos)
+  useEffect(() => {
+    const carregarDados = async () => {
+      setIsLoading(true);
+      try {
+        const [vinculosRes, configsRes, alunosRes] = await Promise.all([
+          fetch(`${API_URL}/vinculos/meus-vinculos`, { headers: { 'Authorization': `Bearer ${token}` } }),
+          fetch(`${API_URL}/configuracoes`, { headers: { 'Authorization': `Bearer ${token}` } }),
+          fetch(`${API_URL}/users?tipo=aluno`, { headers: { 'Authorization': `Bearer ${token}` } })
+        ]);
+        if (!vinculosRes.ok) throw new Error('Falha ao buscar vínculos.');
+        if (!configsRes.ok) throw new Error('Falha ao buscar configurações.');
+        if (!alunosRes.ok) throw new Error('Falha ao buscar alunos.');
 
-  const [filtros, setFiltros] = useState({
-    id_turma: 1,
-    id_materia: 1,
-    unidade: 1,
-    tipo_avaliacao: 'prova' as TipoAvaliacao,
+        setVinculos(await vinculosRes.json());
+        setConfigs(await configsRes.json());
+        setAlunos(await alunosRes.json());
+
+      } catch (error: any) {
+        toast.error(error.message);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    if (token) carregarDados();
+  }, [token]);
+
+  // Buscar notas quando os filtros mudam
+  useEffect(() => {
+    const fetchNotas = async () => {
+      if (!selectedVinculo || !selectedUnidade || !selectedTipo) {
+        setNotas([]); // Limpa as notas se o filtro não estiver completo
+        return;
+      }
+      
+      const [id_turma, id_materia] = selectedVinculo.split('-').map(Number);
+      
+      setIsLoading(true);
+      try {
+        const url = `${API_URL}/notas?id_turma=${id_turma}&id_materia=${id_materia}&unidade=${selectedUnidade}&tipo_avaliacao=${selectedTipo}`;
+        const response = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
+        if (!response.ok) throw new Error('Falha ao buscar notas.');
+        setNotas(await response.json());
+      } catch (error: any) {
+        toast.error(error.message);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    if (token) fetchNotas();
+  }, [token, selectedVinculo, selectedUnidade, selectedTipo]);
+
+  
+  // --- Funções de UI ---
+
+  const tiposDisponiveis = configs.filter(c => {
+    const [id_turma, id_materia] = selectedVinculo.split('-').map(Number);
+    return c.id_turma === id_turma && c.id_materia === id_materia && c.unidade === Number(selectedUnidade) && c.ativo;
+  }).map(c => c.tipo_avaliacao);
+  
+  const alunosDaTurma = alunos.filter(a => {
+    const [id_turma] = selectedVinculo.split('-').map(Number);
+    return a.id_turma === id_turma;
   });
 
-  const [notasTemporarias, setNotasTemporarias] = useState<{ [key: number]: { nota: string; observacao: string } }>({});
-
   const tiposLabel: { [key in TipoAvaliacao]: string } = {
-    prova: 'Prova',
-    teste: 'Teste',
-    trabalho: 'Trabalho',
-    atividade: 'Atividade',
-    caderno: 'Caderno',
-    outro: 'Outro',
+    prova: 'Prova', teste: 'Teste', trabalho: 'Trabalho',
+    atividade: 'Atividade', caderno: 'Caderno', outro: 'Outro',
   };
-
-  const getTiposDisponiveis = () => {
-    return configuracoes
-      .filter(c => c.id_turma === filtros.id_turma && c.id_materia === filtros.id_materia && c.unidade === filtros.unidade)
-      .map(c => c.tipo_avaliacao);
-  };
-
-  const alunosDaTurma = alunos.filter(a => a.id_turma === filtros.id_turma);
 
   const getNotaAluno = (alunoId: number) => {
-    return notas.find(
-      n => n.id_aluno === alunoId &&
-           n.id_turma === filtros.id_turma &&
-           n.id_materia === filtros.id_materia &&
-           n.unidade === filtros.unidade &&
-           n.tipo_avaliacao === filtros.tipo_avaliacao
-    );
+    return notas.find(n => n.id_aluno === alunoId);
   };
-
+  
   const handleSetNotaTemporaria = (alunoId: number, nota: string, observacao?: string) => {
     setNotasTemporarias({
       ...notasTemporarias,
@@ -87,9 +121,9 @@ export default function LancarNotas() {
     });
   };
 
-  const handleSalvarNota = (alunoId: number) => {
+  const handleSalvarNota = async (alunoId: number) => {
     const temp = notasTemporarias[alunoId];
-    if (!temp || !temp.nota) {
+    if (!temp || temp.nota === undefined) {
       toast.error('Digite uma nota válida');
       return;
     }
@@ -99,72 +133,49 @@ export default function LancarNotas() {
       toast.error('Nota deve estar entre 0 e 10');
       return;
     }
+    
+    const [id_turma, id_materia] = selectedVinculo.split('-').map(Number);
+    
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(`${API_URL}/notas/lancar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({
+          id_aluno: alunoId,
+          id_turma: id_turma,
+          id_materia: id_materia,
+          unidade: Number(selectedUnidade),
+          tipo_avaliacao: selectedTipo,
+          nota: notaValor,
+          observacao: temp.observacao
+        })
+      });
 
-    const notaExistente = getNotaAluno(alunoId);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message);
 
-    if (notaExistente) {
-      // Atualizar nota existente
-      setNotas(notas.map(n =>
-        n.id_nota === notaExistente.id_nota
-          ? { ...n, nota: notaValor, observacao: temp.observacao, data_lancamento: new Date().toISOString().split('T')[0] }
-          : n
-      ));
-      toast.success('Nota atualizada com sucesso!');
-    } else {
-      // Criar nova nota
-      const novaNota: NotaAvaliacao = {
-        id_nota: notas.length + 1,
-        id_aluno: alunoId,
-        id_professor: professorId,
-        id_turma: filtros.id_turma,
-        id_materia: filtros.id_materia,
-        unidade: filtros.unidade,
-        tipo_avaliacao: filtros.tipo_avaliacao,
-        nota: notaValor,
-        data_lancamento: new Date().toISOString().split('T')[0],
-        observacao: temp.observacao,
-      };
-      setNotas([...notas, novaNota]);
-      toast.success('Nota lançada com sucesso!');
-    }
-
-    // Limpar temporária
-    const newTemp = { ...notasTemporarias };
-    delete newTemp[alunoId];
-    setNotasTemporarias(newTemp);
-  };
-
-  const calcularMediaAluno = (alunoId: number) => {
-    const notasAluno = notas.filter(
-      n => n.id_aluno === alunoId &&
-           n.id_turma === filtros.id_turma &&
-           n.id_materia === filtros.id_materia &&
-           n.unidade === filtros.unidade
-    );
-
-    if (notasAluno.length === 0) return null;
-
-    const configs = configuracoes.filter(
-      c => c.id_turma === filtros.id_turma &&
-           c.id_materia === filtros.id_materia &&
-           c.unidade === filtros.unidade
-    );
-
-    let somaPonderada = 0;
-    let somaPesos = 0;
-
-    notasAluno.forEach(nota => {
-      const config = configs.find(c => c.tipo_avaliacao === nota.tipo_avaliacao);
-      if (config) {
-        somaPonderada += nota.nota * (config.peso / 100);
-        somaPesos += config.peso / 100;
+      toast.success('Nota salva com sucesso!');
+      
+      // Atualiza a lista de notas locais
+      const notaExistente = notas.find(n => n.id_aluno === alunoId);
+      if (notaExistente) {
+        setNotas(notas.map(n => n.id_aluno === alunoId ? data : n));
+      } else {
+        setNotas([...notas, data]);
       }
-    });
-
-    return somaPesos > 0 ? somaPonderada / somaPesos : null;
+      
+      // Limpa temporária
+      const newTemp = { ...notasTemporarias };
+      delete newTemp[alunoId];
+      setNotasTemporarias(newTemp);
+      
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
-
-  const tiposDisponiveis = getTiposDisponiveis();
 
   return (
     <div className="space-y-6">
@@ -172,31 +183,20 @@ export default function LancarNotas() {
         <CardHeader>
           <div className="flex items-center gap-2">
             <BookCheck className="h-5 w-5 text-blue-600" />
-            <div>
-              <CardTitle>Lançar Notas</CardTitle>
-              <CardDescription>Registre as notas dos alunos por tipo de avaliação</CardDescription>
-            </div>
+            <CardTitle>Lançar Notas</CardTitle>
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Filtros */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-muted/50 rounded-lg">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-muted/50 rounded-lg">
             <div>
               <Label>Turma e Matéria</Label>
-              <Select
-                value={`${filtros.id_turma}-${filtros.id_materia}`}
-                onValueChange={(value) => {
-                  const [turmaId, materiaId] = value.split('-').map(Number);
-                  setFiltros({ ...filtros, id_turma: turmaId, id_materia: materiaId });
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
+              <Select value={selectedVinculo} onValueChange={(v: string) => { setSelectedVinculo(v); setSelectedTipo(''); }}>
+                <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
                 <SelectContent>
-                  {turmasMaterias.map((tm) => (
-                    <SelectItem key={`${tm.id_turma}-${tm.id_materia}`} value={`${tm.id_turma}-${tm.id_materia}`}>
-                      {tm.nome_turma} - {tm.nome_materia}
+                  {vinculos.map((v) => (
+                    <SelectItem key={v.id_ptm} value={`${v.id_turma}-${v.id_materia}`}>
+                      {v.nome_turma} - {v.nome_materia}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -204,13 +204,8 @@ export default function LancarNotas() {
             </div>
             <div>
               <Label>Unidade</Label>
-              <Select
-                value={filtros.unidade.toString()}
-                onValueChange={(value) => setFiltros({ ...filtros, unidade: Number(value) })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
+              <Select value={selectedUnidade} onValueChange={(v: string) => { setSelectedUnidade(v); setSelectedTipo(''); }}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="1">1ª Unidade</SelectItem>
                   <SelectItem value="2">2ª Unidade</SelectItem>
@@ -221,13 +216,8 @@ export default function LancarNotas() {
             </div>
             <div>
               <Label>Tipo de Avaliação</Label>
-              <Select
-                value={filtros.tipo_avaliacao}
-                onValueChange={(value: TipoAvaliacao) => setFiltros({ ...filtros, tipo_avaliacao: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
+              <Select value={selectedTipo} onValueChange={(v: string) => setSelectedTipo(v as TipoAvaliacao)} disabled={!selectedVinculo}>
+                <SelectTrigger><SelectValue placeholder={!selectedVinculo ? "Selecione turma/unidade" : "Selecione..."} /></SelectTrigger>
                 <SelectContent>
                   {tiposDisponiveis.map((tipo) => (
                     <SelectItem key={tipo} value={tipo}>
@@ -240,96 +230,68 @@ export default function LancarNotas() {
           </div>
 
           {/* Tabela de Lançamento */}
-          <div>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Aluno</TableHead>
-                  <TableHead>Nota (0-10)</TableHead>
-                  <TableHead>Observação</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {alunosDaTurma.map((aluno) => {
-                  const notaExistente = getNotaAluno(aluno.id_aluno);
-                  const notaTemp = notasTemporarias[aluno.id_aluno];
-                  const valorAtual = notaTemp?.nota || notaExistente?.nota?.toString() || '';
-                  const obsAtual = notaTemp?.observacao || notaExistente?.observacao || '';
-
-                  return (
-                    <TableRow key={aluno.id_aluno}>
-                      <TableCell>{aluno.nome}</TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          step="0.1"
-                          min="0"
-                          max="10"
-                          placeholder="0.0"
-                          className="w-24"
-                          value={valorAtual}
-                          onChange={(e) => handleSetNotaTemporaria(aluno.id_aluno, e.target.value)}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          placeholder="Opcional"
-                          value={obsAtual}
-                          onChange={(e) => handleSetNotaTemporaria(aluno.id_aluno, valorAtual, e.target.value)}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        {notaExistente ? (
-                          <Badge variant="default">Lançada</Badge>
-                        ) : (
-                          <Badge variant="secondary">Pendente</Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          size="sm"
-                          onClick={() => handleSalvarNota(aluno.id_aluno)}
-                          disabled={!notaTemp?.nota}
-                        >
-                          <Save className="h-4 w-4 mr-2" />
-                          Salvar
-                        </Button>
-                      </TableCell>
+          {selectedTipo && (
+            <div>
+              {isLoading ? (
+                <div className="flex justify-center py-10"><Loader2 className="w-8 h-8 animate-spin" /></div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Aluno</TableHead>
+                      <TableHead>Nota (0-10)</TableHead>
+                      <TableHead>Observação</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Ações</TableHead>
                     </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
+                  </TableHeader>
+                  <TableBody>
+                    {alunosDaTurma.map((aluno) => {
+                      const notaExistente = getNotaAluno(aluno.id_usuario);
+                      const notaTemp = notasTemporarias[aluno.id_usuario];
+                      const valorAtual = notaTemp?.nota ?? notaExistente?.nota?.toString() ?? '';
+                      const obsAtual = notaTemp?.observacao ?? notaExistente?.observacao ?? '';
 
-          {/* Médias Parciais */}
-          <Card className="bg-muted/30">
-            <CardHeader>
-              <CardTitle className="text-base">Médias Parciais da Unidade</CardTitle>
-              <CardDescription>Baseadas nas notas lançadas até o momento</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {alunosDaTurma.map((aluno) => {
-                  const media = calcularMediaAluno(aluno.id_aluno);
-                  return (
-                    <div key={aluno.id_aluno} className="flex items-center justify-between p-3 border rounded-lg bg-background">
-                      <span className="text-sm">{aluno.nome}</span>
-                      {media !== null ? (
-                        <Badge variant={media >= 7 ? "default" : media >= 5 ? "secondary" : "destructive"}>
-                          {media.toFixed(2)}
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline">Sem notas</Badge>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
+                      return (
+                        <TableRow key={aluno.id_usuario}>
+                          <TableCell>{aluno.nome_completo}</TableCell>
+                          <TableCell>
+                            <Input
+                              type="number" step="0.1" min="0" max="10" placeholder="0.0" className="w-24"
+                              value={valorAtual}
+                              onChange={(e) => handleSetNotaTemporaria(aluno.id_usuario, e.target.value, obsAtual)}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              placeholder="Opcional" value={obsAtual}
+                              onChange={(e) => handleSetNotaTemporaria(aluno.id_usuario, valorAtual, e.target.value)}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            {notaExistente ? (
+                              <Badge variant="default">Lançada</Badge>
+                            ) : (
+                              <Badge variant="secondary">Pendente</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              size="sm"
+                              onClick={() => handleSalvarNota(aluno.id_usuario)}
+                              disabled={isSubmitting || !notaTemp?.nota}
+                            >
+                              {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
