@@ -47,23 +47,41 @@ router.get('/', async (req, res) => {
         
         configsUnidade.forEach(config => {
           const nota = notasUnidade.find(n => n.tipo_avaliacao === config.tipo_avaliacao);
-          
-          // --- ESTA É A CORREÇÃO PARA O ERRO 500 ---
           if (nota) { 
-            somaPonderada += nota.nota * (config.peso / 100);
+            // CORREÇÃO AQUI: Converter nota (string) para número
+            somaPonderada += parseFloat(nota.nota) * (config.peso / 100);
           }
-          // Se a nota não foi lançada, ela não entra na soma
-          // --- FIM DA CORREÇÃO ---
-
           somaPesos += config.peso / 100;
         });
 
-        // Se nenhum peso foi configurado ou nenhuma nota lançada, não há média
-        if (somaPesos === 0 || somaPonderada === 0) {
+        if (somaPesos === 0) { // Se não houver pesos (ou notas), não há média
             return {
                 unidade: unidade,
                 media: null,
-                notas: notasUnidade.map(n => ({ tipo: n.tipo_avaliacao, nota: n.nota.toFixed(2), observacao: n.observacao, data: n.data_lancamento })),
+                notas: notasUnidade.map(n => ({ 
+                  tipo: n.tipo_avaliacao, 
+                  // CORREÇÃO AQUI: Converter nota (string) para número
+                  nota: parseFloat(n.nota).toFixed(2), 
+                  observacao: n.observacao, 
+                  data: n.data_lancamento 
+                })),
+                configuracoes: configsUnidade.map(c => ({ tipo: c.tipo_avaliacao, peso: c.peso }))
+            };
+        }
+        
+        // Se houver pesos, mas nenhuma nota foi lançada ainda
+        if (somaPonderada === 0) {
+            const media = 0; // Média é zero se não houver notas
+            return {
+                unidade: unidade,
+                media: media.toFixed(2),
+                notas: notasUnidade.map(n => ({ 
+                  tipo: n.tipo_avaliacao, 
+                  // CORREÇÃO AQUI: Converter nota (string) para número
+                  nota: parseFloat(n.nota).toFixed(2), 
+                  observacao: n.observacao, 
+                  data: n.data_lancamento 
+                })),
                 configuracoes: configsUnidade.map(c => ({ tipo: c.tipo_avaliacao, peso: c.peso }))
             };
         }
@@ -73,7 +91,13 @@ router.get('/', async (req, res) => {
         return {
           unidade: unidade,
           media: media.toFixed(2),
-          notas: notasUnidade.map(n => ({ tipo: n.tipo_avaliacao, nota: n.nota.toFixed(2), observacao: n.observacao, data: n.data_lancamento })),
+          notas: notasUnidade.map(n => ({ 
+            tipo: n.tipo_avaliacao, 
+            // CORREÇÃO AQUI: Converter nota (string) para número
+            nota: parseFloat(n.nota).toFixed(2), 
+            observacao: n.observacao, 
+            data: n.data_lancamento 
+          })),
           configuracoes: configsUnidade.map(c => ({ tipo: c.tipo_avaliacao, peso: c.peso }))
         };
       }).filter(u => u !== null);
