@@ -41,23 +41,46 @@ router.get('/', async (req, res) => {
         const configsUnidade = configuracoes.filter(c => c.id_materia === materia.id_materia && c.unidade === unidade);
         const notasUnidade = notas.filter(n => n.id_materia === materia.id_materia && n.unidade === unidade);
         if (configsUnidade.length === 0) return null;
+        
         let somaPonderada = 0;
         let somaPesos = 0;
+        
         configsUnidade.forEach(config => {
           const nota = notasUnidade.find(n => n.tipo_avaliacao === config.tipo_avaliacao);
-          if (nota) { somaPonderada += nota.nota * (config.peso / 100); }
+          
+          // --- ESTA É A CORREÇÃO PARA O ERRO 500 ---
+          if (nota) { 
+            somaPonderada += nota.nota * (config.peso / 100);
+          }
+          // Se a nota não foi lançada, ela não entra na soma
+          // --- FIM DA CORREÇÃO ---
+
           somaPesos += config.peso / 100;
         });
-        const media = (somaPesos > 0) ? somaPonderada / somaPesos : null;
+
+        // Se nenhum peso foi configurado ou nenhuma nota lançada, não há média
+        if (somaPesos === 0 || somaPonderada === 0) {
+            return {
+                unidade: unidade,
+                media: null,
+                notas: notasUnidade.map(n => ({ tipo: n.tipo_avaliacao, nota: n.nota.toFixed(2), observacao: n.observacao, data: n.data_lancamento })),
+                configuracoes: configsUnidade.map(c => ({ tipo: c.tipo_avaliacao, peso: c.peso }))
+            };
+        }
+
+        const media = somaPonderada / somaPesos;
+
         return {
           unidade: unidade,
-          media: media ? media.toFixed(2) : null,
+          media: media.toFixed(2),
           notas: notasUnidade.map(n => ({ tipo: n.tipo_avaliacao, nota: n.nota.toFixed(2), observacao: n.observacao, data: n.data_lancamento })),
           configuracoes: configsUnidade.map(c => ({ tipo: c.tipo_avaliacao, peso: c.peso }))
         };
       }).filter(u => u !== null);
+      
       const mediasValidas = mediasPorUnidade.map(u => u.media ? parseFloat(u.media) : NaN).filter(m => !isNaN(m));
       const mediaGeralMateria = mediasValidas.length > 0 ? (mediasValidas.reduce((a, b) => a + b, 0) / mediasValidas.length).toFixed(2) : null;
+      
       return {
         id_materia: materia.id_materia,
         nome_materia: materia.nome_materia,

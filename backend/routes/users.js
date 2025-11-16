@@ -15,8 +15,6 @@ const router = express.Router();
 router.get('/', async (req, res) => {
   const { tipo } = req.query; 
   
-  // Qualquer usuário logado pode listar outros usuários
-  // (Importante para o professor ver os alunos da turma)
   let usersQuery = `
     SELECT id_usuario, nome_completo, email, tipo_usuario, id_turma 
     FROM usuarios
@@ -45,7 +43,6 @@ router.get('/', async (req, res) => {
  */
 router.post('/create', isAdmin, async (req, res) => { // Protegido com 'isAdmin'
   const { nome_completo, email, senha, tipo_usuario, id_turma } = req.body;
-  // ... (o resto da função é o mesmo)
   if (!nome_completo || !email || !senha || !tipo_usuario) {
     return res.status(400).json({ message: 'Todos os campos obrigatórios devem ser preenchidos.' });
   }

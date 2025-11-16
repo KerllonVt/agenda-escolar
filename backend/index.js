@@ -45,14 +45,12 @@ app.get('/api/test-db', async (req, res) => {
 app.use('/api/auth', authRoutes);
 
 // === ROTAS PRIVADAS (ADMIN) ===
-// (A rota de /api/users agora é usada por Admin E Professor, por isso foi movida)
 app.use('/api/turmas', verifyToken, isAdmin, turmasRoutes);
 app.use('/api/materias', verifyToken, isAdmin, materiasRoutes);
 
 // === ROTAS PRIVADAS (ADMIN E PROFESSOR) ===
-// (Ambos podem ver usuários, mas com lógicas diferentes dentro do arquivo)
+// Professores podem listar usuários (alunos), mas apenas Admins podem criar/alterar
 app.use('/api/users', verifyToken, usersRoutes); 
-// (Admin vê tudo, Professor só os dele)
 app.use('/api/vinculos', verifyToken, vinculosRoutes); 
 
 // === ROTAS PRIVADAS (PROFESSOR) ===
