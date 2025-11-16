@@ -9,9 +9,6 @@ const router = express.Router();
 /**
  * ROTA: Listar Aulas (Agenda)
  * GET /api/aulas?data_inicio=YYYY-MM-DD&data_fim=YYYY-MM-DD
- * Rota inteligente:
- * - Se ALUNO: Retorna aulas da sua turma (id_turma vem do token).
- * - Se PROFESSOR: Retorna aulas que ele leciona (id_professor vem do token).
  */
 router.get('/', async (req, res) => {
   // req.user é injetado pelo middleware verifyToken
@@ -26,7 +23,11 @@ router.get('/', async (req, res) => {
   try {
     let aulasQuery = `
       SELECT 
-        a.id_aula, a.data, a.hora, a.assunto, a.tipo_aula,
+        a.id_aula, 
+        TO_CHAR(a.data, 'YYYY-MM-DD') AS data, -- <-- ESTA É A CORREÇÃO
+        a.hora, 
+        a.assunto, 
+        a.tipo_aula,
         t.nome_turma,
         m.nome_materia,
         u.nome_completo AS nome_professor
