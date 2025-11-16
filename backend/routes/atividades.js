@@ -55,7 +55,7 @@ router.get('/envios-pendentes', isProfessor, async (req, res) => {
       SELECT 
         env.id_envio,
         env.data_envio,
-        env.resposta, -- (NOVO) Resposta em texto
+        env.resposta,
         aluno.nome_completo AS nome_aluno,
         at.descricao AS nome_atividade,
         a.id_aula,
@@ -69,7 +69,7 @@ router.get('/envios-pendentes', isProfessor, async (req, res) => {
       JOIN aulas a ON at.id_aula = a.id_aula
       JOIN materias m ON a.id_materia = m.id_materia
       JOIN turmas t ON a.id_turma = t.id_turma
-      WHERE a.id_professor = $1 AND env.nota IS NULL -- Filtra por professor E por nota pendente
+      WHERE a.id_professor = $1 AND env.nota IS NULL
       ORDER BY env.data_envio ASC;
     `;
     const result = await query(enviosQuery, [id_professor]);
@@ -94,7 +94,6 @@ router.put('/envios/:id_envio/avaliar', isProfessor, async (req, res) => {
     return res.status(400).json({ message: 'A nota é obrigatória.' });
   }
   
-  // Padronizando a nota para 0-10, como no Boletim
   const notaFloat = parseFloat(nota);
   if (isNaN(notaFloat) || notaFloat < 0 || notaFloat > 10) {
      return res.status(400).json({ message: 'A nota deve ser entre 0 e 10.' });
@@ -122,8 +121,6 @@ router.put('/envios/:id_envio/avaliar', isProfessor, async (req, res) => {
     `;
     const result = await query(updateQuery, [notaFloat, comentario_professor, id_envio]);
     
-    // (TODO: Adicionar lógica de Pontuação (gamificação) aqui)
-    
     res.json(result.rows[0]);
   } catch (error) {
     console.error('Erro ao avaliar atividade:', error);
@@ -141,10 +138,9 @@ router.put('/envios/:id_envio/avaliar', isProfessor, async (req, res) => {
 router.get('/', async (req, res) => {
   const { id_usuario, tipo, id_turma } = req.user;
 
-  // Se for professor, retorna as atividades que ele criou
   if (tipo === 'professor') {
      const profQuery = `
-      SELECT at.*, m.nome_materia, t.nome_turma
+      SELECT at.*, m.nome_materia, t.nome_turma, a.data AS data_aula
       FROM atividades at
       JOIN aulas a ON at.id_aula = a.id_aula
       JOIN materias m ON a.id_materia = m.id_materia
@@ -156,9 +152,8 @@ router.get('/', async (req, res) => {
     return res.json(result.rows);
   }
   
-  // Se for aluno, retorna atividades da sua turma
   if (tipo === 'aluno') {
-    if (!id_turma) return res.json([]); // Aluno sem turma
+    if (!id_turma) return res.json([]);
     
     const alunoQuery = `
       SELECT 
@@ -171,7 +166,6 @@ router.get('/', async (req, res) => {
       FROM atividades at
       JOIN aulas a ON at.id_aula = a.id_aula
       JOIN materias m ON a.id_materia = m.id_materia
-      -- LEFT JOIN para pegar o envio DESTE aluno
       LEFT JOIN envios_atividades env ON at.id_atividade = env.id_atividade AND env.id_aluno = $1
       WHERE a.id_turma = $2
       AND (at.data_limite_acesso IS NULL OR at.data_limite_acesso >= CURRENT_TIMESTAMP)
@@ -181,7 +175,6 @@ router.get('/', async (req, res) => {
     return res.json(result.rows);
   }
   
-  // Se for Admin, retorna tudo
   const adminQuery = `SELECT * FROM atividades ORDER BY data_entrega DESC;`;
   const result = await query(adminQuery);
   res.json(result.rows);
@@ -192,30 +185,26 @@ router.get('/', async (req, res) => {
  * POST /api/atividades/envios
  */
 router.post('/envios', async (req, res) => {
-  const { id_aluno } = req.user;
-  const { id_atividade, resposta_texto, arquivos } = req.body; // 'arquivos' é um array de nomes
+  const { id_usuario: id_aluno } = req.user;
+  const { id_atividade, resposta_texto, arquivos } = req.body; 
 
   if (!id_atividade) {
     return res.status(400).json({ message: 'ID da atividade é obrigatório.' });
   }
 
   try {
-    // 1. Verificar se a atividade permite reenvio
     const atividadeQuery = 'SELECT * FROM atividades WHERE id_atividade = $1';
     const atResult = await query(atividadeQuery, [id_atividade]);
     const atividade = atResult.rows[0];
 
-    // 2. Verificar se já existe um envio
     const envioQuery = 'SELECT * FROM envios_atividades WHERE id_atividade = $1 AND id_aluno = $2';
     const envioResult = await query(envioQuery, [id_atividade, id_aluno]);
     const envioExistente = envioResult.rows[0];
 
-    // 3. Se já existe E não permite reenvio
     if (envioExistente && !atividade.permite_reenvio) {
       return res.status(403).json({ message: 'Esta atividade não permite reenvio.' });
     }
     
-    // 4. Se já existe E permite reenvio (UPDATE)
     if (envioExistente) {
       const updateQuery = `
         UPDATE envios_atividades
@@ -223,28 +212,20 @@ router.post('/envios', async (req, res) => {
         WHERE id_envio = $3
         RETURNING *;
       `;
-      // TODO: Simulação de upload. Apenas salvamos o nome do primeiro arquivo.
       const arquivoNome = arquivos.length > 0 ? arquivos[0].nome : null;
       const result = await query(updateQuery, [resposta_texto, arquivoNome, envioExistente.id_envio]);
-      
-      // (TODO: Aqui limparia os 'envio_anexo' antigos e salvaria os novos)
-      
       return res.json(result.rows[0]);
     }
 
-    // 5. Se não existe (INSERT)
     const insertQuery = `
       INSERT INTO envios_atividades (id_atividade, id_aluno, resposta, arquivo_enviado)
       VALUES ($1, $2, $3, $4)
       RETURNING *;
     `;
-    // TODO: Simulação de upload. Apenas salvamos o nome do primeiro arquivo.
     const arquivoNome = arquivos.length > 0 ? arquivos[0].nome : null;
     const result = await query(insertQuery, [id_atividade, id_aluno, resposta_texto, arquivoNome]);
     const novoEnvio = result.rows[0];
     
-    // (TODO: Aqui salvaria os múltiplos 'envio_anexo')
-
     res.status(201).json(novoEnvio);
 
   } catch (error) {
