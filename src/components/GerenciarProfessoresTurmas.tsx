@@ -6,13 +6,14 @@ import { Button } from './ui/button';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog'; // Removido DialogTrigger
 import { Badge } from './ui/badge';
 import { UserCheck, Plus, Trash2, BookOpen, Loader2, Search, Edit } from 'lucide-react';
-import { Input } from './ui/input'; // <-- 1. 'Input' ADICIONADO AQUI
+import { Input } from './ui/input';
 import { ProfessorTurmaMateria, Usuario, Turma, Materia } from '../types';
 import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
+
 
 const API_URL = '/api';
 
@@ -163,7 +164,8 @@ export default function GerenciarProfessoresTurmas() {
   };
 
   return (
-    <Dialog open={dialogAberto} onOpenChange={setDialogAberto}>
+    // --- CORREÇÃO: <Dialog> movido para o final ---
+    <>
       <div className="space-y-6">
         {/* Criar/Editar Vínculos */}
         <Card>
@@ -176,12 +178,10 @@ export default function GerenciarProfessoresTurmas() {
                   <CardDescription>Defina quais turmas e matérias cada professor leciona</CardDescription>
                 </div>
               </div>
-              <DialogTrigger asChild>
-                <Button onClick={() => handleOpenDialog(null)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Novo Vínculo
-                </Button>
-              </DialogTrigger>
+              <Button onClick={() => handleOpenDialog(null)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Novo Vínculo
+              </Button>
             </div>
             <div className="relative w-full max-w-sm mt-4">
               <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -189,7 +189,6 @@ export default function GerenciarProfessoresTurmas() {
                 placeholder="Pesquisar por professor, turma ou matéria..." 
                 className="pl-9"
                 value={searchVinculo}
-                // 2. TIPO ADICIONADO
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchVinculo(e.target.value)}
               />
             </div>
@@ -206,11 +205,9 @@ export default function GerenciarProfessoresTurmas() {
                       <TableCell><Badge>{vinculo.nome_materia}</Badge></TableCell>
                       <TableCell className="text-right">
                         <div className="flex gap-2 justify-end">
-                          <DialogTrigger asChild>
-                            <Button variant="ghost" size="sm" onClick={() => handleOpenDialog(vinculo)}>
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                          </DialogTrigger>
+                          <Button variant="ghost" size="sm" onClick={() => handleOpenDialog(vinculo)}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
                           <Button variant="ghost" size="sm" onClick={() => handleExcluirVinculo(vinculo.id_ptm)}>
                             <Trash2 className="h-4 w-4 text-red-600" />
                           </Button>
@@ -250,11 +247,13 @@ export default function GerenciarProfessoresTurmas() {
           </CardContent>
         </Card>
         
-        {/* Modal de Criar/Editar Vínculo */}
+      </div>
+
+      {/* Modal de Criar/Editar Vínculo (agora está no final) */}
+      <Dialog open={dialogAberto} onOpenChange={setDialogAberto}>
         <DialogContent className="max-w-md">
           <DialogHeader><DialogTitle>{editandoVinculo ? 'Editar Vínculo' : 'Novo Vínculo'}</DialogTitle></DialogHeader>
           <div className="space-y-4">
-            {/* 3. TIPOS ADICIONADOS */}
             <div><Label htmlFor="professor">Professor</Label><Select value={formVinculo.id_professor} onValueChange={(value: string) => setFormVinculo({ ...formVinculo, id_professor: value })}><SelectTrigger id="professor"><SelectValue placeholder="Selecione um professor" /></SelectTrigger><SelectContent>{professores.map((prof) => (<SelectItem key={prof.id_usuario} value={prof.id_usuario.toString()}>{prof.nome_completo}</SelectItem>))}</SelectContent></Select></div>
             <div><Label htmlFor="turma">Turma</Label><Select value={formVinculo.id_turma} onValueChange={(value: string) => setFormVinculo({ ...formVinculo, id_turma: value })}><SelectTrigger id="turma"><SelectValue placeholder="Selecione uma turma" /></SelectTrigger><SelectContent>{turmas.map((turma) => (<SelectItem key={turma.id_turma} value={turma.id_turma.toString()}>{turma.nome_turma} - {turma.serie} ({turma.turno})</SelectItem>))}</SelectContent></Select></div>
             <div><Label htmlFor="materia">Matéria</Label><Select value={formVinculo.id_materia} onValueChange={(value: string) => setFormVinculo({ ...formVinculo, id_materia: value })}><SelectTrigger id="materia"><SelectValue placeholder="Selecione uma matéria" /></SelectTrigger><SelectContent>{materias.map((materia) => (<SelectItem key={materia.id_materia} value={materia.id_materia.toString()}>{materia.nome_materia}</SelectItem>))}</SelectContent></Select></div>
@@ -264,7 +263,7 @@ export default function GerenciarProfessoresTurmas() {
             </div>
           </div>
         </DialogContent>
-      </div>
-    </Dialog>
+      </Dialog>
+    </>
   );
 }
