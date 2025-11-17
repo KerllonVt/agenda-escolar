@@ -17,7 +17,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { Usuario, Materia, TipoUsuario } from '../types';
 
 // URL da API (local)
-const API_URL = '/api';
+const API_URL = 'http://localhost:5000/api';
 
 // Hook para "atrasar" a pesquisa (debounce)
 function useDebounce(value: string, delay: number) {
@@ -122,7 +122,7 @@ export function PainelAdministrador({ onBack }: PainelAdministradorProps) {
   
   useEffect(() => {
     if (token) fetchStats();
-  }, [token, usuarios, materias]); // Recarrega stats se usuários ou matérias mudarem
+  }, [token, usuarios, materias]); 
 
   // --- CRUD Usuários ---
   const handleOpenUserDialog = (usuario: Usuario | null) => {
@@ -146,11 +146,9 @@ export function PainelAdministrador({ onBack }: PainelAdministradorProps) {
       toast.error('Preencha nome, email e senha (para novos usuários).');
       return;
     }
-    
     setIsLoadingUsers(true);
     const url = editandoUsuario ? `${API_URL}/users/${editandoUsuario.id_usuario}` : `${API_URL}/users/create`;
     const method = editandoUsuario ? 'PUT' : 'POST';
-    
     try {
       const response = await fetch(url, {
         method: method,
@@ -159,7 +157,6 @@ export function PainelAdministrador({ onBack }: PainelAdministradorProps) {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.message);
-      
       toast.success(editandoUsuario ? 'Usuário atualizado!' : 'Usuário criado!');
       if (editandoUsuario) {
         setUsuarios(usuarios.map(u => u.id_usuario === data.id_usuario ? data : u));
@@ -176,7 +173,6 @@ export function PainelAdministrador({ onBack }: PainelAdministradorProps) {
       return;
     }
     if (!window.confirm(`Tem certeza que deseja excluir ${usuario.nome_completo}?`)) return;
-    
     setIsLoadingUsers(true);
     try {
       const response = await fetch(`${API_URL}/users/${usuario.id_usuario}`, {
@@ -185,7 +181,6 @@ export function PainelAdministrador({ onBack }: PainelAdministradorProps) {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.message);
-      
       toast.success(data.message);
       setUsuarios(usuarios.filter(u => u.id_usuario !== usuario.id_usuario));
     } catch (error: any) { toast.error(error.message); } finally { setIsLoadingUsers(false); }
@@ -206,10 +201,8 @@ export function PainelAdministrador({ onBack }: PainelAdministradorProps) {
   const handleSalvarMateria = async () => {
     if (!formMateria.nome_materia) { toast.error('Digite o nome da matéria'); return; }
     setIsLoadingMaterias(true);
-    
     const url = editandoMateria ? `${API_URL}/materias/${editandoMateria.id_materia}` : `${API_URL}/materias`;
     const method = editandoMateria ? 'PUT' : 'POST';
-
     try {
       const response = await fetch(url, {
         method: method,
@@ -218,7 +211,6 @@ export function PainelAdministrador({ onBack }: PainelAdministradorProps) {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.message);
-      
       toast.success(editandoMateria ? 'Matéria atualizada!' : 'Matéria cadastrada!');
       if (editandoMateria) {
         setMaterias(materias.map(m => m.id_materia === data.id_materia ? data : m));
@@ -239,25 +231,23 @@ export function PainelAdministrador({ onBack }: PainelAdministradorProps) {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.message);
-      
       toast.success(data.message);
       setMaterias(materias.filter(m => m.id_materia !== materia.id_materia));
     } catch (error: any) { toast.error(error.message); } finally { setIsLoadingMaterias(false); }
   };
 
-  // --- Funções Auxiliares de Renderização ---
   const getTipoUsuarioBadge = (tipo: string) => {
     const configs = { aluno: 'bg-blue-100 text-blue-700', professor: 'bg-green-100 text-green-700', admin: 'bg-purple-100 text-purple-700' };
     return configs[tipo as keyof typeof configs] || configs.aluno;
   };
 
   return (
-    // --- CORREÇÃO AQUI: Removemos os Dialogs aninhados ---
+    // --- CORREÇÃO AQUI: Os Dialogs não estão mais aninhados ---
     <>
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
-        {/* Header */}
         <header className="bg-white shadow-sm border-b">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          {/* ... (código do header idêntico) ... */}
+           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
             <div className="flex items-center gap-4">
               <Button variant="outline" size="icon" onClick={onBack}><ArrowLeft className="w-5 h-5" /></Button>
               <div className="flex-1"><h1 className="text-primary">Painel do Administrador</h1><p className="text-sm text-muted-foreground">Gerencie usuários, turmas e configurações do sistema</p></div>
@@ -266,7 +256,6 @@ export function PainelAdministrador({ onBack }: PainelAdministradorProps) {
           </div>
         </header>
 
-        {/* Main Content */}
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Cards de Estatísticas */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
@@ -292,7 +281,7 @@ export function PainelAdministrador({ onBack }: PainelAdministradorProps) {
               <CardContent>
                 {/* Tab: Usuários */}
                 <TabsContent value="usuarios" className="space-y-6">
-                  {/* --- CORREÇÃO AQUI: O Dialog começa aqui --- */}
+                  {/* O Dialog de Usuário agora VIVE DENTRO da sua própria aba */}
                   <Dialog open={userDialogAberto} onOpenChange={setUserDialogAberto}>
                     <div className="flex items-center justify-between">
                       <div className="relative w-full max-w-sm">
@@ -340,7 +329,7 @@ export function PainelAdministrador({ onBack }: PainelAdministradorProps) {
                         ))}
                       </div>
                     )}
-                  </Dialog> {/* --- FIM DO DIALOG DE USUÁRIO --- */}
+                  </Dialog>
                 </TabsContent>
 
                 <TabsContent value="turmas-series"><GerenciarTurmasSeries /></TabsContent>
@@ -348,7 +337,7 @@ export function PainelAdministrador({ onBack }: PainelAdministradorProps) {
 
                 {/* Tab: Matérias */}
                 <TabsContent value="materias" className="space-y-6">
-                  {/* --- CORREÇÃO AQUI: O Dialog começa aqui --- */}
+                  {/* O Dialog de Matéria agora VIVE DENTRO da sua própria aba */}
                   <Dialog open={materiaDialogAberto} onOpenChange={setMateriaDialogAberto}>
                     <div className="flex items-center justify-between">
                       <div className="relative w-full max-w-sm">
@@ -388,7 +377,7 @@ export function PainelAdministrador({ onBack }: PainelAdministradorProps) {
                         ))}
                       </div>
                     )}
-                  </Dialog> {/* --- FIM DO DIALOG DE MATÉRIA --- */}
+                  </Dialog>
                 </TabsContent>
 
                 <TabsContent value="relatorios"><div className="text-center py-12"><BarChart3 className="w-16 h-16 mx-auto text-muted-foreground mb-4" /><h3 className="mb-2">Relatórios em Desenvolvimento</h3><p className="text-muted-foreground">Em breve você poderá visualizar relatórios detalhados.</p></div></TabsContent>
