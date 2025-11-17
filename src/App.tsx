@@ -7,7 +7,8 @@ import { Dashboard } from './components/Dashboard';
 import { AgendaSemanal } from './components/AgendaSemanal';
 import { MateriaisAula } from './components/MateriaisAula';
 import { Atividades } from './components/Atividades';
-import { Pontuacao } from './components/Pontuacao';
+// import { Pontuacao } from './components/Pontuacao'; // <-- REMOVIDO
+import DesempenhoAluno from './components/DesempenhoAluno'; // <-- NOVO
 import { PesquisaTema } from './components/PesquisaTema';
 import { GerenciamentoTurmas } from './components/GerenciamentoTurmas';
 import { Configuracoes } from './components/Configuracoes';
@@ -22,7 +23,6 @@ import BoletimAluno from './components/BoletimAluno';
 import { Toaster } from './components/ui/sonner';
 import { Aula } from './types'; 
 
-// Definimos um tipo mais forte para as Aulas
 type AulaCompleta = Aula & {
   nome_turma: string;
   nome_materia: string;
@@ -33,8 +33,6 @@ type AulaCompleta = Aula & {
 function AppContent() {
   const { usuario } = useAuth();
   const [currentPage, setCurrentPage] = useState('dashboard');
-  
-  // Mudamos o tipo para aceitar a Aula Completa
   const [selectedAula, setSelectedAula] = useState<AulaCompleta | null>(null);
 
   if (!usuario) {
@@ -45,7 +43,6 @@ function AppContent() {
     setCurrentPage(page);
   };
 
-  // A função agora espera o objeto AulaCompleta
   const handleViewMateriais = (aula: AulaCompleta) => {
     setSelectedAula(aula);
     setCurrentPage('materiais');
@@ -53,9 +50,9 @@ function AppContent() {
 
   const handleBack = () => {
     if (currentPage === 'materiais') {
-      setCurrentPage('agenda'); // Volta para a agenda
+      setCurrentPage('agenda'); 
     } else {
-      setCurrentPage('dashboard'); // Volta para o dashboard
+      setCurrentPage('dashboard'); 
     }
   };
 
@@ -64,8 +61,6 @@ function AppContent() {
       {currentPage === 'dashboard' && (
         <Dashboard onNavigate={handleNavigate} />
       )}
-      {/* --- CORREÇÃO AQUI --- */}
-      {/* Passamos a prop 'currentPage' que estava faltando */}
       {currentPage === 'agenda' && (
         <AgendaSemanal 
           onBack={handleBack} 
@@ -73,8 +68,6 @@ function AppContent() {
           currentPage={currentPage}
         />
       )}
-      {/* --- FIM DA CORREÇÃO --- */}
-      
       {currentPage === 'materiais' && selectedAula && (
         <MateriaisAula 
           aula={selectedAula} 
@@ -84,9 +77,28 @@ function AppContent() {
       {currentPage === 'atividades' && (
         <Atividades onBack={handleBack} />
       )}
-      {currentPage === 'pontuacao' && (
-        <Pontuacao onBack={handleBack} />
+      
+      {/* --- PÁGINA DE PONTUAÇÃO SUBSTITUÍDA --- */}
+      {currentPage === 'pontuacao' && ( // A 'page' no Dashboard ainda é 'pontuacao'
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
+          <header className="bg-white shadow-sm border-b">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+              <div className="flex items-center gap-4">
+                <button onClick={handleBack} className="text-primary hover:underline">
+                  ← Voltar
+                </button>
+                {/* O título agora reflete a nova tela */}
+                <h1 className="text-primary">Desempenho nas Atividades</h1>
+              </div>
+            </div>
+          </header>
+          <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <DesempenhoAluno />
+          </main>
+        </div>
       )}
+      {/* --- FIM DA SUBSTITUIÇÃO --- */}
+      
       {currentPage === 'boletim' && (
         <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
           <header className="bg-white shadow-sm border-b">
@@ -95,6 +107,7 @@ function AppContent() {
                 <button onClick={handleBack} className="text-primary hover:underline">
                   ← Voltar
                 </button>
+                <h1 className="text-primary">Meu Boletim (Notas Finais)</h1>
               </div>
             </div>
           </header>
