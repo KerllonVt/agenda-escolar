@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
 
 // URL da API (local)
-const API_URL = 'http://localhost:5000/api';
+const API_URL = '/api';
 
 interface AvaliarAtividadesProps {
   onBack: () => void;

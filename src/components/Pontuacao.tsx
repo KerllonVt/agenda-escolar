@@ -10,7 +10,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { Pontuacao as PontuacaoType, Conquista } from '../types';
 import { toast } from 'sonner';
 
-const API_URL = 'http://localhost:5000/api';
+const API_URL = '/api';
 
 interface PontuacaoProps {
   onBack: () => void;

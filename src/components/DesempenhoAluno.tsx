@@ -10,7 +10,7 @@ import { Alert, AlertDescription } from './ui/alert';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'sonner';
 
-const API_URL = 'http://localhost:5000/api';
+const API_URL = '/api';
 
 // Tipos de dados para esta tela
 type AtividadeSomatorio = {

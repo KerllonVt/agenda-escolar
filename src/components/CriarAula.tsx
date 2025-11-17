@@ -11,7 +11,7 @@ import { Textarea } from './ui/textarea';
 import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
 
-const API_URL = 'http://localhost:5000/api';
+const API_URL = '/api';
 
 type VinculoProfessor = {
   id_ptm: number;

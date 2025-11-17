@@ -6,7 +6,7 @@ import { Label } from './ui/label';
 import { Switch } from './ui/switch';
 import { useAuth } from '../contexts/AuthContext';
 import { useState } from 'react';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 
 interface ConfiguracoesProps {
   onBack: () => void;
@@ -188,7 +188,7 @@ export function Configuracoes({ onBack }: ConfiguracoesProps) {
               </div>
               <Switch
                 checked={temaDark}
-                onCheckedChange={(checked) => {
+                onCheckedChange={(checked: boolean) => {
                   setTemaDark(checked);
                   toast.info(checked ? 'Tema escuro ativado' : 'Tema claro ativado');
                 }}

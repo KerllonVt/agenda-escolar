@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Label } from './ui/label'; // Importado
 
 // URL da API (local)
-const API_URL = 'http://localhost:5000/api';
+const API_URL = '/api';
 
 type AulaCompleta = Aula & {
   nome_turma: string;

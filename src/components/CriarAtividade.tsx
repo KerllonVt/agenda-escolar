@@ -16,7 +16,7 @@ import { Aula, Atividade, ProfessorTurmaMateria } from '../types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 
 // URL da API (local)
-const API_URL = 'http://localhost:5000/api';
+const API_URL = '/api';
 
 interface CriarAtividadeProps { onBack: () => void; }
 type AulaSimples = Partial<Aula> & { id_aula: number; assunto: string; nome_materia: string; nome_turma: string; data: string; };

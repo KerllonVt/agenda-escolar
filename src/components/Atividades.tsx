@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 import { Atividade } from '../types';
 
 // URL da API (local)
-const API_URL = 'http://localhost:5000/api';
+const API_URL = '/api';
 
 interface AtividadesProps { onBack: () => void; }
 type AtividadeAluno = Atividade & { nome_materia: string | null; id_envio: number | null; nota: number | null; data_envio: string | null; comentario_professor: string | null; };

@@ -14,7 +14,7 @@ import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
 // URL da API (local)
-const API_URL = 'http://localhost:5000/api';
+const API_URL = '/api';
 
 interface MateriaisAulaProps {
   aula: Aula; 

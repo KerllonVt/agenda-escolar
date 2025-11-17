@@ -14,7 +14,7 @@ import { Turma, Usuario } from '../types';
 import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
 
-const API_URL = 'http://localhost:5000/api';
+const API_URL = '/api';
 
 // Hook para "atrasar" a pesquisa (debounce)
 function useDebounce(value: string, delay: number) {

@@ -9,7 +9,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'sonner';
 
 // URL da API (local)
-const API_URL = 'http://localhost:5000/api';
+const API_URL = '/api';
 
 interface DashboardProps {
   onNavigate: (page: string) => void;
