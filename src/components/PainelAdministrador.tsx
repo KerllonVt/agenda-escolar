@@ -1,7 +1,6 @@
 // src/components/PainelAdministrador.tsx
 
 import React, { useState, useEffect, useMemo } from 'react';
-// --- CORREÇÃO AQUI ---
 import { ArrowLeft, Users, BookOpen, School, UserPlus, Settings, BarChart3, Edit, Trash2, GraduationCap, UserCheck, Loader2, AlertCircle, Search, Plus } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
@@ -10,7 +9,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-// --- CORREÇÃO AQUI ---
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from './ui/dialog';
 import { toast } from 'sonner';
 import GerenciarTurmasSeries from './GerenciarTurmasSeries';
@@ -133,7 +131,7 @@ export function PainelAdministrador({ onBack }: PainelAdministradorProps) {
       setFormUsuario({
         nome_completo: usuario.nome_completo,
         email: usuario.email,
-        senha: '', // Senha fica em branco na edição
+        senha: '',
         tipo_usuario: usuario.tipo_usuario
       });
     } else {
@@ -254,8 +252,8 @@ export function PainelAdministrador({ onBack }: PainelAdministradorProps) {
   };
 
   return (
-    <Dialog open={userDialogAberto} onOpenChange={setUserDialogAberto}>
-    <Dialog open={materiaDialogAberto} onOpenChange={setMateriaDialogAberto}>
+    // --- CORREÇÃO AQUI: Removemos os Dialogs aninhados ---
+    <>
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
         {/* Header */}
         <header className="bg-white shadow-sm border-b">
@@ -294,52 +292,55 @@ export function PainelAdministrador({ onBack }: PainelAdministradorProps) {
               <CardContent>
                 {/* Tab: Usuários */}
                 <TabsContent value="usuarios" className="space-y-6">
-                  <div className="flex items-center justify-between">
-                    <div className="relative w-full max-w-sm">
-                      <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                      <Input 
-                        placeholder="Pesquisar usuário por nome..." 
-                        className="pl-9"
-                        value={searchUsuario}
-                        onChange={(e) => setSearchUsuario(e.target.value)}
-                      />
+                  {/* --- CORREÇÃO AQUI: O Dialog começa aqui --- */}
+                  <Dialog open={userDialogAberto} onOpenChange={setUserDialogAberto}>
+                    <div className="flex items-center justify-between">
+                      <div className="relative w-full max-w-sm">
+                        <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                        <Input 
+                          placeholder="Pesquisar usuário por nome..." 
+                          className="pl-9"
+                          value={searchUsuario}
+                          onChange={(e) => setSearchUsuario(e.target.value)}
+                        />
+                      </div>
+                      <DialogTrigger asChild>
+                        <Button onClick={() => handleOpenUserDialog(null)}>
+                          <UserPlus className="w-4 h-4 mr-2" />
+                          Novo Usuário
+                        </Button>
+                      </DialogTrigger>
                     </div>
-                    <DialogTrigger asChild>
-                      <Button onClick={() => handleOpenUserDialog(null)}>
-                        <UserPlus className="w-4 h-4 mr-2" />
-                        Novo Usuário
-                      </Button>
-                    </DialogTrigger>
-                  </div>
-                  {isLoadingUsers ? (<div className="flex justify-center py-10"><Loader2 className="w-8 h-8 animate-spin" /></div>) : (
-                    <div className="space-y-3">
-                      {usuarios.map((usuario) => (
-                        <Card key={usuario.id_usuario}>
-                          <CardContent className="py-4">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-3">
-                                <div className="bg-primary text-primary-foreground w-10 h-10 rounded-full flex items-center justify-center">{usuario.nome_completo.charAt(0)}</div>
-                                <div><h4>{usuario.nome_completo}</h4><p className="text-sm text-muted-foreground">{usuario.email}</p></div>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Badge className={getTipoUsuarioBadge(usuario.tipo_usuario)} variant="outline">
-                                  {usuario.tipo_usuario === 'aluno' ? 'Aluno' : usuario.tipo_usuario === 'professor' ? 'Professor' : 'Admin'}
-                                </Badge>
-                                <DialogTrigger asChild>
-                                  <Button variant="outline" size="icon" onClick={() => handleOpenUserDialog(usuario)}>
-                                    <Edit className="w-4 h-4" />
+                    {isLoadingUsers ? (<div className="flex justify-center py-10"><Loader2 className="w-8 h-8 animate-spin" /></div>) : (
+                      <div className="space-y-3">
+                        {usuarios.map((usuario) => (
+                          <Card key={usuario.id_usuario}>
+                            <CardContent className="py-4">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                  <div className="bg-primary text-primary-foreground w-10 h-10 rounded-full flex items-center justify-center">{usuario.nome_completo.charAt(0)}</div>
+                                  <div><h4>{usuario.nome_completo}</h4><p className="text-sm text-muted-foreground">{usuario.email}</p></div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Badge className={getTipoUsuarioBadge(usuario.tipo_usuario)} variant="outline">
+                                    {usuario.tipo_usuario === 'aluno' ? 'Aluno' : usuario.tipo_usuario === 'professor' ? 'Professor' : 'Admin'}
+                                  </Badge>
+                                  <DialogTrigger asChild>
+                                    <Button variant="outline" size="icon" onClick={() => handleOpenUserDialog(usuario)}>
+                                      <Edit className="w-4 h-4" />
+                                    </Button>
+                                  </DialogTrigger>
+                                  <Button variant="outline" size="icon" onClick={() => handleExcluirUsuario(usuario)} disabled={usuario.id_usuario === adminLogado?.id_usuario}>
+                                    <Trash2 className="w-4 h-4 text-red-600" />
                                   </Button>
-                                </DialogTrigger>
-                                <Button variant="outline" size="icon" onClick={() => handleExcluirUsuario(usuario)} disabled={usuario.id_usuario === adminLogado?.id_usuario}>
-                                  <Trash2 className="w-4 h-4 text-red-600" />
-                                </Button>
+                                </div>
                               </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  )}
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    )}
+                  </Dialog> {/* --- FIM DO DIALOG DE USUÁRIO --- */}
                 </TabsContent>
 
                 <TabsContent value="turmas-series"><GerenciarTurmasSeries /></TabsContent>
@@ -347,44 +348,47 @@ export function PainelAdministrador({ onBack }: PainelAdministradorProps) {
 
                 {/* Tab: Matérias */}
                 <TabsContent value="materias" className="space-y-6">
-                  <div className="flex items-center justify-between">
-                    <div className="relative w-full max-w-sm">
-                      <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                      <Input 
-                        placeholder="Pesquisar matéria..." 
-                        className="pl-9"
-                        value={searchMateria}
-                        onChange={(e) => setSearchMateria(e.target.value)}
-                      />
+                  {/* --- CORREÇÃO AQUI: O Dialog começa aqui --- */}
+                  <Dialog open={materiaDialogAberto} onOpenChange={setMateriaDialogAberto}>
+                    <div className="flex items-center justify-between">
+                      <div className="relative w-full max-w-sm">
+                        <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                        <Input 
+                          placeholder="Pesquisar matéria..." 
+                          className="pl-9"
+                          value={searchMateria}
+                          onChange={(e) => setSearchMateria(e.target.value)}
+                        />
+                      </div>
+                      <DialogTrigger asChild>
+                        <Button onClick={() => handleOpenMateriaDialog(null)}>
+                          <Plus className="w-4 h-4 mr-2" />
+                          Nova Matéria
+                        </Button>
+                      </DialogTrigger>
                     </div>
-                    <DialogTrigger asChild>
-                      <Button onClick={() => handleOpenMateriaDialog(null)}>
-                        <Plus className="w-4 h-4 mr-2" />
-                        Nova Matéria
-                      </Button>
-                    </DialogTrigger>
-                  </div>
-                  {isLoadingMaterias ? (<div className="flex justify-center py-10"><Loader2 className="w-8 h-8 animate-spin" /></div>) : (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      {materias.map((materia) => (
-                        <Card key={materia.id_materia}>
-                          <CardHeader><div className="flex items-center justify-between"><CardTitle>{materia.nome_materia}</CardTitle><BookOpen className="w-6 h-6 text-primary" /></div></CardHeader>
-                          <CardContent>
-                            <div className="flex gap-2">
-                              <DialogTrigger asChild>
-                                <Button variant="outline" size="sm" className="flex-1" onClick={() => handleOpenMateriaDialog(materia)}>
-                                  <Edit className="w-4 h-4" />
+                    {isLoadingMaterias ? (<div className="flex justify-center py-10"><Loader2 className="w-8 h-8 animate-spin" /></div>) : (
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {materias.map((materia) => (
+                          <Card key={materia.id_materia}>
+                            <CardHeader><div className="flex items-center justify-between"><CardTitle>{materia.nome_materia}</CardTitle><BookOpen className="w-6 h-6 text-primary" /></div></CardHeader>
+                            <CardContent>
+                              <div className="flex gap-2">
+                                <DialogTrigger asChild>
+                                  <Button variant="outline" size="sm" className="flex-1" onClick={() => handleOpenMateriaDialog(materia)}>
+                                    <Edit className="w-4 h-4" />
+                                  </Button>
+                                </DialogTrigger>
+                                <Button variant="outline" size="sm" className="flex-1" onClick={() => handleExcluirMateria(materia)}>
+                                  <Trash2 className="w-4 h-4 text-red-600" />
                                 </Button>
-                              </DialogTrigger>
-                              <Button variant="outline" size="sm" className="flex-1" onClick={() => handleExcluirMateria(materia)}>
-                                <Trash2 className="w-4 h-4 text-red-600" />
-                              </Button>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  )}
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    )}
+                  </Dialog> {/* --- FIM DO DIALOG DE MATÉRIA --- */}
                 </TabsContent>
 
                 <TabsContent value="relatorios"><div className="text-center py-12"><BarChart3 className="w-16 h-16 mx-auto text-muted-foreground mb-4" /><h3 className="mb-2">Relatórios em Desenvolvimento</h3><p className="text-muted-foreground">Em breve você poderá visualizar relatórios detalhados.</p></div></TabsContent>
@@ -425,7 +429,6 @@ export function PainelAdministrador({ onBack }: PainelAdministradorProps) {
           </div>
         </div>
       </DialogContent>
-    </Dialog>
-    </Dialog>
+    </>
   );
 }
