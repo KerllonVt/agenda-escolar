@@ -17,7 +17,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { Usuario, Materia, TipoUsuario } from '../types';
 
 // URL da API (local)
-const API_URL = 'http://localhost:5000/api';
+const API_URL = '/api';
 
 // Hook para "atrasar" a pesquisa (debounce)
 function useDebounce(value: string, delay: number) {
