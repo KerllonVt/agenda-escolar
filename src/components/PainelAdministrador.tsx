@@ -16,7 +16,7 @@ import GerenciarProfessoresTurmas from './GerenciarProfessoresTurmas';
 import { useAuth } from '../contexts/AuthContext';
 import { Usuario, Materia, TipoUsuario } from '../types';
 
-// URL da API (local)
+// URL da API (configurada para Vercel)
 const API_URL = '/api';
 
 // Hook para "atrasar" a pesquisa (debounce)
@@ -66,7 +66,6 @@ export function PainelAdministrador({ onBack }: PainelAdministradorProps) {
   const [stats, setStats] = useState<Record<string, number>>({});
   const [isLoadingStats, setIsLoadingStats] = useState(true);
 
-  // Debounce (atraso) para as barras de pesquisa
   const debouncedSearchUsuario = useDebounce(searchUsuario, 300);
   const debouncedSearchMateria = useDebounce(searchMateria, 300);
 
@@ -246,7 +245,6 @@ export function PainelAdministrador({ onBack }: PainelAdministradorProps) {
     <>
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
         <header className="bg-white shadow-sm border-b">
-          {/* ... (código do header idêntico) ... */}
            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
             <div className="flex items-center gap-4">
               <Button variant="outline" size="icon" onClick={onBack}><ArrowLeft className="w-5 h-5" /></Button>
