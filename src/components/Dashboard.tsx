@@ -8,7 +8,7 @@ import { Badge } from './ui/badge';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'sonner';
 
-// URL da API (local)
+// URL da API (configurada para Vercel)
 const API_URL = '/api';
 
 interface DashboardProps {
@@ -58,6 +58,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
 
         // --- DADOS DO ALUNO ---
         if (usuario.tipo_usuario === 'aluno') {
+          // --- CORREÇÃO: Removida a chamada /api/pontuacao ---
           const [atividadesRes, aulasRes] = await Promise.all([
             fetch(`${API_URL}/atividades`, { headers }),
             fetch(`${API_URL}/aulas?data_inicio=${semana.inicio}&data_fim=${semana.fim}`, { headers })
@@ -147,19 +148,15 @@ export function Dashboard({ onNavigate }: DashboardProps) {
       { icon: Search, title: 'Pesquisar Tema', description: 'Busque materiais educativos', page: 'pesquisa', color: 'bg-teal-500' },
     ];
   }
-  
-  // --- CORREÇÃO AQUI ---
   if (usuario?.tipo_usuario === 'admin') {
     menuItems = [
       { icon: Shield, title: 'Painel Admin', description: 'Gerencie o sistema', page: 'admin', color: 'bg-purple-600' },
-      // A linha "Ver Backend" foi removida
     ];
   }
-  // --- FIM DA CORREÇÃO ---
 
   const renderStats = () => {
     if (isLoading) {
-      return (
+       return (
         <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
           <Card><CardHeader><CardDescription>...</CardDescription><CardTitle><Loader2 className="w-6 h-6 animate-spin" /></CardTitle></CardHeader></Card>
           <Card><CardHeader><CardDescription>...</CardDescription><CardTitle><Loader2 className="w-6 h-6 animate-spin" /></CardTitle></CardHeader></Card>

@@ -19,7 +19,7 @@ import notasRoutes from './routes/notas.js';
 import boletimRoutes from './routes/boletim.js';
 import uploadRoutes from './routes/upload.js';
 import materiaisRoutes from './routes/materiais.js';
-import desempenhoRoutes from './routes/desempenho.js';
+import desempenhoRoutes from './routes/desempenho.js'; // (NOVO)
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -56,7 +56,7 @@ app.use('/api/atividades', verifyToken, atividadesRoutes);
 app.use('/api/boletim', verifyToken, boletimRoutes);
 app.use('/api/materiais', verifyToken, materiaisRoutes);
 app.use('/api/upload', verifyToken, uploadRoutes);
-app.use('/api/desempenho', verifyToken, desempenhoRoutes);
+app.use('/api/desempenho', verifyToken, desempenhoRoutes); // (NOVO)
 
 // Inicia o servidor
 app.listen(port, () => {
