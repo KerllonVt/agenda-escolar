@@ -1,7 +1,15 @@
-/*! tailwindcss v4.1.3 | MIT License | https://tailwindcss.com */
+/* --- ESTAS SÃO AS 3 LINHAS QUE FALTAVAM --- */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+/* --- FIM DA CORREÇÃO --- */
+
+
 @layer properties {
-  @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
-    *, :before, :after, ::backdrop {
+  @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or
+    (((-moz-orient: inline)) and (not (color: rgb(from red r g b)))) {
+    *,
+    :before, :after, ::backdrop {
       --tw-translate-x: 0;
       --tw-translate-y: 0;
       --tw-translate-z: 0;
@@ -274,7 +282,6 @@
   }
 
   img, svg, video, canvas, audio, iframe, embed, object {
-    vertical-align: middle;
     display: block;
   }
 
@@ -658,6 +665,8 @@
 
   .line-clamp-1 {
     -webkit-line-clamp: 1;
+    line-clamp: 1;
+    line-clamp: 1;
     -webkit-box-orient: vertical;
     display: -webkit-box;
     overflow: hidden;

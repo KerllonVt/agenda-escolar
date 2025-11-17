@@ -1,3 +1,5 @@
+// src/App.tsx
+
 import { useState } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Login } from './components/Login';
@@ -18,11 +20,22 @@ import ConfigurarAvaliacoes from './components/ConfigurarAvaliacoes';
 import LancarNotas from './components/LancarNotas';
 import BoletimAluno from './components/BoletimAluno';
 import { Toaster } from './components/ui/sonner';
+import { Aula } from './types'; 
+
+// Definimos um tipo mais forte para as Aulas
+type AulaCompleta = Aula & {
+  nome_turma: string;
+  nome_materia: string;
+  nome_professor: string;
+  total_materiais: string; 
+};
 
 function AppContent() {
   const { usuario } = useAuth();
   const [currentPage, setCurrentPage] = useState('dashboard');
-  const [selectedAgendaId, setSelectedAgendaId] = useState<number | null>(null);
+  
+  // Mudamos o tipo para aceitar a Aula Completa
+  const [selectedAula, setSelectedAula] = useState<AulaCompleta | null>(null);
 
   if (!usuario) {
     return <Login onLoginSuccess={() => setCurrentPage('dashboard')} />;
@@ -32,16 +45,17 @@ function AppContent() {
     setCurrentPage(page);
   };
 
-  const handleViewMateriais = (agendaId: number) => {
-    setSelectedAgendaId(agendaId);
+  // A função agora espera o objeto AulaCompleta
+  const handleViewMateriais = (aula: AulaCompleta) => {
+    setSelectedAula(aula);
     setCurrentPage('materiais');
   };
 
   const handleBack = () => {
     if (currentPage === 'materiais') {
-      setCurrentPage('agenda');
+      setCurrentPage('agenda'); // Volta para a agenda
     } else {
-      setCurrentPage('dashboard');
+      setCurrentPage('dashboard'); // Volta para o dashboard
     }
   };
 
@@ -50,15 +64,20 @@ function AppContent() {
       {currentPage === 'dashboard' && (
         <Dashboard onNavigate={handleNavigate} />
       )}
+      {/* --- CORREÇÃO AQUI --- */}
+      {/* Passamos a prop 'currentPage' que estava faltando */}
       {currentPage === 'agenda' && (
         <AgendaSemanal 
           onBack={handleBack} 
           onViewMateriais={handleViewMateriais}
+          currentPage={currentPage}
         />
       )}
-      {currentPage === 'materiais' && selectedAgendaId && (
+      {/* --- FIM DA CORREÇÃO --- */}
+      
+      {currentPage === 'materiais' && selectedAula && (
         <MateriaisAula 
-          agendaId={selectedAgendaId} 
+          aula={selectedAula} 
           onBack={handleBack}
         />
       )}

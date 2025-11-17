@@ -5,19 +5,30 @@ import { query } from '../db.js';
 
 const router = express.Router();
 
-// --- Listar todas as turmas ---
-// GET /api/turmas
+/**
+ * (NOVO) ROTA: Listar todas as turmas (com pesquisa)
+ * GET /api/turmas
+ * GET /api/turmas?search=9
+ */
 router.get('/', async (req, res) => {
+  const { search } = req.query;
+  
   try {
-    // Vamos contar quantos alunos estão em cada turma
-    const turmasQuery = `
+    let turmasQuery = `
       SELECT t.*, COUNT(u.id_usuario) AS total_alunos
       FROM turmas t
       LEFT JOIN usuarios u ON t.id_turma = u.id_turma AND u.tipo_usuario = 'aluno'
-      GROUP BY t.id_turma
-      ORDER BY t.nome_turma;
     `;
-    const result = await query(turmasQuery);
+    const params = [];
+
+    if (search) {
+      turmasQuery += ' WHERE t.nome_turma ILIKE $1 OR t.serie ILIKE $1';
+      params.push(`%${search}%`);
+    }
+    
+    turmasQuery += ' GROUP BY t.id_turma ORDER BY t.nome_turma;';
+    
+    const result = await query(turmasQuery, params);
     res.json(result.rows);
   } catch (error) {
     console.error('Erro ao listar turmas:', error);
@@ -26,14 +37,11 @@ router.get('/', async (req, res) => {
 });
 
 // --- Criar nova turma ---
-// POST /api/turmas
 router.post('/', async (req, res) => {
   const { nome_turma, serie, ano, turno } = req.body;
-
   if (!nome_turma || !serie || !ano || !turno) {
     return res.status(400).json({ message: 'Todos os campos são obrigatórios.' });
   }
-
   try {
     const newTurmaQuery = `
       INSERT INTO turmas (nome_turma, serie, ano, turno)
@@ -41,7 +49,6 @@ router.post('/', async (req, res) => {
       RETURNING *;
     `;
     const result = await query(newTurmaQuery, [nome_turma, serie, ano, turno]);
-    // Retorna a nova turma criada (já com o total_alunos = 0)
     res.status(201).json({...result.rows[0], total_alunos: 0});
   } catch (error) {
     console.error('Erro ao criar turma:', error);
@@ -50,15 +57,12 @@ router.post('/', async (req, res) => {
 });
 
 // --- Atualizar turma ---
-// PUT /api/turmas/:id
 router.put('/:id', async (req, res) => {
   const { id } = req.params;
   const { nome_turma, serie, ano, turno } = req.body;
-
   if (!nome_turma || !serie || !ano || !turno) {
     return res.status(400).json({ message: 'Todos os campos são obrigatórios.' });
   }
-
   try {
     const updateQuery = `
       UPDATE turmas
@@ -67,7 +71,6 @@ router.put('/:id', async (req, res) => {
       RETURNING *;
     `;
     const result = await query(updateQuery, [nome_turma, serie, ano, turno, id]);
-
     if (result.rows.length === 0) {
       return res.status(404).json({ message: 'Turma não encontrada.' });
     }
@@ -79,30 +82,22 @@ router.put('/:id', async (req, res) => {
 });
 
 // --- Excluir turma ---
-// DELETE /api/turmas/:id
 router.delete('/:id', async (req, res) => {
   const { id } = req.params;
-
   try {
-    // Primeiro, verifica se há alunos na turma
     const checkAlunosQuery = 'SELECT 1 FROM usuarios WHERE id_turma = $1 AND tipo_usuario = $2';
     const resultAlunos = await query(checkAlunosQuery, [id, 'aluno']);
-
     if (resultAlunos.rows.length > 0) {
       return res.status(400).json({ message: 'Não é possível excluir. Existem alunos vinculados a esta turma.' });
     }
-
-    // Se não houver alunos, exclui
     const deleteQuery = 'DELETE FROM turmas WHERE id_turma = $1 RETURNING *;';
     const result = await query(deleteQuery, [id]);
-
     if (result.rows.length === 0) {
       return res.status(404).json({ message: 'Turma não encontrada.' });
     }
     res.status(200).json({ message: 'Turma excluída com sucesso.' });
   } catch (error) {
-    // Captura erro se houver outras restrições (ex: professores vinculados)
-    if (error.code === '23503') { // Erro de violação de chave estrangeira
+    if (error.code === '23503') { 
        return res.status(400).json({ message: 'Não é possível excluir. Existem professores ou aulas vinculados a esta turma.' });
     }
     console.error('Erro ao excluir turma:', error);

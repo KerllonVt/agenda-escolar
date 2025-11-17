@@ -1,10 +1,16 @@
-import { ArrowLeft, Award, Trophy, Star, TrendingUp, Target, Search, Zap, Sparkles, CheckCircle } from 'lucide-react';
+// src/components/Pontuacao.tsx
+
+import React, { useState, useEffect } from 'react';
+import { ArrowLeft, Award, Trophy, Star, TrendingUp, Target, Search, Zap, Sparkles, CheckCircle, Loader2 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Progress } from './ui/progress';
 import { Badge } from './ui/badge';
 import { useAuth } from '../contexts/AuthContext';
-import { pontuacoes, conquistas, alunosConquistas } from '../lib/mock-data';
+import { Pontuacao as PontuacaoType, Conquista } from '../types';
+import { toast } from 'sonner';
+
+const API_URL = 'http://localhost:5000/api';
 
 interface PontuacaoProps {
   onBack: () => void;
@@ -12,26 +18,42 @@ interface PontuacaoProps {
 
 // Mapeamento de ícones
 const iconMap: Record<string, any> = {
-  Star,
-  Target,
-  Trophy,
-  Award,
-  TrendingUp,
-  Search,
-  Zap,
-  Sparkles
+  Star, Target, Trophy, Award, TrendingUp, Search, Zap, Sparkles
+};
+
+type ConquistaComStatus = Conquista & {
+  conquistada: boolean;
+  data_conquista: string | null;
+};
+
+type PontuacaoData = {
+  pontuacao: PontuacaoType;
+  conquistas: ConquistaComStatus[];
 };
 
 export function Pontuacao({ onBack }: PontuacaoProps) {
-  const { usuario } = useAuth();
+  const { token } = useAuth();
   
-  const pontuacao = pontuacoes.find(p => p.id_aluno === usuario?.id) || {
-    id: 1,
-    id_aluno: usuario?.id || 1,
-    pontos_totais: 1250,
-    medalhas: 8,
-    nivel: 5
-  };
+  const [data, setData] = useState<PontuacaoData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchPontuacao = async () => {
+      setIsLoading(true);
+      try {
+        const response = await fetch(`${API_URL}/pontuacao/minha`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!response.ok) throw new Error('Falha ao buscar pontuação.');
+        setData(await response.json());
+      } catch (error: any) {
+        toast.error(error.message);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    if (token) fetchPontuacao();
+  }, [token]);
 
   // Calcula o nível baseado na pontuação
   const getNivelNome = (nivel: number) => {
@@ -42,23 +64,23 @@ export function Pontuacao({ onBack }: PontuacaoProps) {
     return 'Mestre';
   };
 
-  const pontosNoNivelAtual = pontuacao.pontos_totais % 300;
+  if (isLoading || !data) {
+    return (
+      <div className="min-h-screen flex justify-center items-center">
+        <Loader2 className="w-12 h-12 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  const { pontuacao, conquistas } = data;
+  
+  // (Lógica de Nível - 300 pontos por nível)
   const pontosPorNivel = 300;
+  const nivelCalculado = Math.floor(pontuacao.pontos_totais / pontosPorNivel) + 1;
+  const pontosNoNivelAtual = pontuacao.pontos_totais % pontosPorNivel;
   const pontosFaltando = pontosPorNivel - pontosNoNivelAtual;
   const progresso = (pontosNoNivelAtual / pontosPorNivel) * 100;
-
-  // Busca conquistas do aluno
-  const conquistasDoAluno = alunosConquistas
-    .filter(ac => ac.id_aluno === usuario?.id)
-    .map(ac => ac.id_conquista);
-
-  const conquistasComStatus = conquistas.map(conquista => ({
-    ...conquista,
-    conquistada: conquistasDoAluno.includes(conquista.id_conquista),
-    dataConquista: alunosConquistas.find(
-      ac => ac.id_aluno === usuario?.id && ac.id_conquista === conquista.id_conquista
-    )?.data_conquista
-  }));
+  const nomeNivel = getNivelNome(nivelCalculado);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
@@ -81,7 +103,6 @@ export function Pontuacao({ onBack }: PontuacaoProps) {
 
       {/* Main Content */}
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-        {/* Pontuação Principal - Visual Melhorado */}
         <Card className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white border-0 overflow-hidden relative">
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32"></div>
           <CardHeader>
@@ -89,7 +110,7 @@ export function Pontuacao({ onBack }: PontuacaoProps) {
               <div>
                 <CardDescription className="text-yellow-100">Você é um estudante</CardDescription>
                 <CardTitle className="text-5xl text-white mt-2 mb-1">
-                  {getNivelNome(pontuacao.nivel)}
+                  {nomeNivel}
                 </CardTitle>
                 <div className="flex items-center gap-2 mt-2">
                   <Sparkles className="w-5 h-5" />
@@ -108,11 +129,11 @@ export function Pontuacao({ onBack }: PontuacaoProps) {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="bg-white/20 px-3 py-1 rounded-full">
-                    <span>Nível {pontuacao.nivel}</span>
+                    <span>Nível {nivelCalculado}</span>
                   </div>
                   <span className="text-yellow-100">→</span>
                   <div className="bg-white/10 px-3 py-1 rounded-full border border-white/30">
-                    <span>Nível {pontuacao.nivel + 1}</span>
+                    <span>Nível {nivelCalculado + 1}</span>
                   </div>
                 </div>
               </div>
@@ -134,50 +155,6 @@ export function Pontuacao({ onBack }: PontuacaoProps) {
           </CardContent>
         </Card>
 
-        {/* Estatísticas */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card className="border-2 border-blue-200 bg-blue-50">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardDescription>Nível Atual</CardDescription>
-                <div className="bg-blue-500 p-2 rounded-lg">
-                  <TrendingUp className="w-5 h-5 text-white" />
-                </div>
-              </div>
-              <CardTitle className="text-4xl">{pontuacao.nivel}</CardTitle>
-              <p className="text-sm text-muted-foreground">{getNivelNome(pontuacao.nivel)}</p>
-            </CardHeader>
-          </Card>
-
-          <Card className="border-2 border-yellow-200 bg-yellow-50">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardDescription>Medalhas</CardDescription>
-                <div className="bg-yellow-500 p-2 rounded-lg">
-                  <Award className="w-5 h-5 text-white" />
-                </div>
-              </div>
-              <CardTitle className="text-4xl">{pontuacao.medalhas}</CardTitle>
-              <p className="text-sm text-muted-foreground">Conquistas desbloqueadas</p>
-            </CardHeader>
-          </Card>
-
-          <Card className="border-2 border-purple-200 bg-purple-50">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardDescription>Conquistas</CardDescription>
-                <div className="bg-purple-500 p-2 rounded-lg">
-                  <Star className="w-5 h-5 text-white" />
-                </div>
-              </div>
-              <CardTitle className="text-4xl">
-                {conquistasComStatus.filter(c => c.conquistada).length}/{conquistasComStatus.length}
-              </CardTitle>
-              <p className="text-sm text-muted-foreground">Badges coletados</p>
-            </CardHeader>
-          </Card>
-        </div>
-
         {/* Conquistas */}
         <Card>
           <CardHeader>
@@ -189,13 +166,13 @@ export function Pontuacao({ onBack }: PontuacaoProps) {
                 </CardDescription>
               </div>
               <Badge variant="secondary" className="text-lg px-4 py-2">
-                {conquistasComStatus.filter(c => c.conquistada).length}/{conquistasComStatus.length}
+                {conquistas.filter(c => c.conquistada).length}/{conquistas.length}
               </Badge>
             </div>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {conquistasComStatus.map((conquista) => {
+              {conquistas.map((conquista) => {
                 const Icon = iconMap[conquista.icone] || Star;
                 return (
                   <div
@@ -231,7 +208,7 @@ export function Pontuacao({ onBack }: PontuacaoProps) {
                         {conquista.conquistada ? (
                           <div className="flex items-center gap-2 text-xs text-green-600">
                             <CheckCircle className="w-3 h-3" />
-                            <span>Conquistado em {new Date(conquista.dataConquista || '').toLocaleDateString('pt-BR')}</span>
+                            <span>Conquistado em {new Date(conquista.data_conquista || '').toLocaleDateString('pt-BR')}</span>
                           </div>
                         ) : (
                           <div className="flex items-center gap-2">
@@ -253,48 +230,6 @@ export function Pontuacao({ onBack }: PontuacaoProps) {
                   </div>
                 );
               })}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Ranking (Preview) */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Ranking da Turma</CardTitle>
-            <CardDescription>
-              Veja sua posição entre os colegas
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {[
-                { posicao: 1, nome: 'João Santos', pontos: 1450 },
-                { posicao: 2, nome: usuario?.nome_completo || 'Maria Silva', pontos: 1250, destaque: true },
-                { posicao: 3, nome: 'Ana Costa', pontos: 1180 },
-              ].map((aluno) => (
-                <div
-                  key={aluno.posicao}
-                  className={`flex items-center justify-between p-3 rounded-lg ${
-                    aluno.destaque ? 'bg-blue-50 border border-blue-200' : 'bg-muted'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                        aluno.posicao === 1
-                          ? 'bg-yellow-500 text-white'
-                          : aluno.posicao === 2
-                          ? 'bg-gray-400 text-white'
-                          : 'bg-orange-600 text-white'
-                      }`}
-                    >
-                      {aluno.posicao}
-                    </div>
-                    <span>{aluno.nome}</span>
-                  </div>
-                  <span>{aluno.pontos.toLocaleString('pt-BR')} pts</span>
-                </div>
-              ))}
             </div>
           </CardContent>
         </Card>

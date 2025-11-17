@@ -2,33 +2,39 @@
 
 import express from 'express';
 import { query } from '../db.js';
-import { isProfessor } from '../authMiddleware.js'; // Importamos o middleware
+import { isProfessor } from '../authMiddleware.js'; 
 
 const router = express.Router();
 
 /**
- * ROTA: Listar todos os vínculos (Admin)
+ * (NOVO) ROTA: Listar todos os vínculos (com pesquisa)
  * GET /api/vinculos
+ * GET /api/vinculos?search=pedro
  */
 router.get('/', async (req, res) => {
+  const { search } = req.query;
+
   try {
-    const vinculosQuery = `
+    let vinculosQuery = `
       SELECT 
-        v.id_ptm, 
-        v.id_professor, 
-        v.id_turma, 
-        v.id_materia,
+        v.id_ptm, v.id_professor, v.id_turma, v.id_materia,
         u.nome_completo AS nome_professor,
-        t.nome_turma,
-        t.serie,
+        t.nome_turma, t.serie,
         m.nome_materia
       FROM professores_turmas_materias v
       JOIN usuarios u ON v.id_professor = u.id_usuario
       JOIN turmas t ON v.id_turma = t.id_turma
       JOIN materias m ON v.id_materia = m.id_materia
-      ORDER BY u.nome_completo, t.nome_turma;
     `;
-    const result = await query(vinculosQuery);
+    const params = [];
+    if (search) {
+      vinculosQuery += ' WHERE u.nome_completo ILIKE $1 OR t.nome_turma ILIKE $1 OR m.nome_materia ILIKE $1';
+      params.push(`%${search}%`);
+    }
+    
+    vinculosQuery += ' ORDER BY u.nome_completo, t.nome_turma;';
+    
+    const result = await query(vinculosQuery, params);
     res.json(result.rows);
   } catch (error) {
     console.error('Erro ao listar vínculos:', error);
@@ -36,17 +42,12 @@ router.get('/', async (req, res) => {
   }
 });
 
-// --- (NOVO) ---
 /**
- * ROTA: Listar vínculos do professor LOGADO (para o dropdown de Criar Aula)
+ * ROTA: Listar vínculos do professor LOGADO
  * GET /api/vinculos/meus-vinculos
- * Esta rota é protegida e requer que o usuário seja um professor
  */
 router.get('/meus-vinculos', isProfessor, async (req, res) => {
-  // O middleware 'isProfessor' já rodou e verificou o token
-  // Podemos pegar o id do professor logado diretamente do req.user
   const id_professor = req.user.id_usuario;
-
   try {
     const vinculosQuery = `
       SELECT 
@@ -74,11 +75,9 @@ router.get('/meus-vinculos', isProfessor, async (req, res) => {
  */
 router.post('/', async (req, res) => {
   const { id_professor, id_turma, id_materia } = req.body;
-
   if (!id_professor || !id_turma || !id_materia) {
     return res.status(400).json({ message: 'Professor, turma e matéria são obrigatórios.' });
   }
-
   try {
     const newVinculoQuery = `
       INSERT INTO professores_turmas_materias (id_professor, id_turma, id_materia)
@@ -87,7 +86,6 @@ router.post('/', async (req, res) => {
     `;
     const result = await query(newVinculoQuery, [id_professor, id_turma, id_materia]);
     
-    // Buscar os dados completos do vínculo recém-criado para retornar ao frontend
     const getNewVinculoQuery = `
       SELECT 
         v.id_ptm, v.id_professor, v.id_turma, v.id_materia,
@@ -101,9 +99,7 @@ router.post('/', async (req, res) => {
       WHERE v.id_ptm = $1;
     `;
     const finalResult = await query(getNewVinculoQuery, [result.rows[0].id_ptm]);
-
     res.status(201).json(finalResult.rows[0]);
-
   } catch (error) {
     if (error.code === '23505') {
       return res.status(409).json({ message: 'Este vínculo (professor + turma + matéria) já existe.' });
@@ -114,21 +110,72 @@ router.post('/', async (req, res) => {
 });
 
 /**
- * ROTA: Excluir um vínculo (Admin)
- * DELETE /api/vinculos/:id
+ * (NOVO) ROTA: Admin atualiza um vínculo
+ * PUT /api/vinculos/:id_ptm
  */
-router.delete('/:id', async (req, res) => {
-  const { id } = req.params; 
+router.put('/:id_ptm', async (req, res) => {
+  const { id_ptm } = req.params;
+  const { id_professor, id_turma, id_materia } = req.body;
+
+  if (!id_professor || !id_turma || !id_materia) {
+    return res.status(400).json({ message: 'Professor, turma e matéria são obrigatórios.' });
+  }
 
   try {
-    const deleteQuery = 'DELETE FROM professores_turmas_materias WHERE id_ptm = $1 RETURNING *;';
-    const result = await query(deleteQuery, [id]);
+    const queryText = `
+      UPDATE professores_turmas_materias
+      SET id_professor = $1, id_turma = $2, id_materia = $3
+      WHERE id_ptm = $4
+      RETURNING *;
+    `;
+    const result = await query(queryText, [id_professor, id_turma, id_materia, id_ptm]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'Vínculo não encontrado.' });
+    }
+    
+    // Retorna os dados completos
+    const getUpdatedVinculoQuery = `
+      SELECT 
+        v.id_ptm, v.id_professor, v.id_turma, v.id_materia,
+        u.nome_completo AS nome_professor,
+        t.nome_turma, t.serie,
+        m.nome_materia
+      FROM professores_turmas_materias v
+      JOIN usuarios u ON v.id_professor = u.id_usuario
+      JOIN turmas t ON v.id_turma = t.id_turma
+      JOIN materias m ON v.id_materia = m.id_materia
+      WHERE v.id_ptm = $1;
+    `;
+    const finalResult = await query(getUpdatedVinculoQuery, [id_ptm]);
+    res.json(finalResult.rows[0]);
+    
+  } catch (error) {
+     if (error.code === '23505') {
+      return res.status(409).json({ message: 'Este vínculo (professor + turma + matéria) já existe.' });
+    }
+    console.error('Erro ao atualizar vínculo:', error);
+    res.status(500).json({ message: 'Erro interno no servidor.' });
+  }
+});
 
+
+/**
+ * ROTA: Excluir um vínculo (Admin)
+ * DELETE /api/vinculos/:id_ptm
+ */
+router.delete('/:id_ptm', async (req, res) => {
+  const { id_ptm } = req.params; 
+  try {
+    const deleteQuery = 'DELETE FROM professores_turmas_materias WHERE id_ptm = $1 RETURNING *;';
+    const result = await query(deleteQuery, [id_ptm]);
     if (result.rows.length === 0) {
       return res.status(404).json({ message: 'Vínculo não encontrado.' });
     }
     res.status(200).json({ message: 'Vínculo excluído com sucesso.' });
   } catch (error) {
+    if (error.code === '23503') {
+      return res.status(400).json({ message: 'Não é possível excluir. Este vínculo já está sendo usado em aulas ou atividades.' });
+    }
     console.error('Erro ao excluir vínculo:', error);
     res.status(500).json({ message: 'Erro interno no servidor.' });
   }

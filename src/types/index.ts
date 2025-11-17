@@ -1,3 +1,5 @@
+// src/types/index.ts
+
 // Tipos baseados na estrutura do banco de dados
 
 export type TipoUsuario = 'aluno' | 'professor' | 'admin';
@@ -32,7 +34,8 @@ export interface ProfessorTurmaMateria {
   id_materia: number;
 }
 
-export type TipoAula = 'teórica' | 'prática' | 'atividade';
+// tipo_aula foi REMOVIDO do banco
+// export type TipoAula = 'teórica' | 'prática' | 'atividade';
 
 export interface Aula {
   id_aula: number;
@@ -42,7 +45,7 @@ export interface Aula {
   data: string;
   hora: string;
   assunto: string;
-  tipo_aula: TipoAula;
+  // tipo_aula: TipoAula; // REMOVIDO
 }
 
 export type TipoMaterial = 'pdf' | 'vídeo' | 'texto' | 'link';
@@ -51,32 +54,45 @@ export interface Material {
   id_material: number;
   id_aula: number;
   tipo_material: TipoMaterial;
-  caminho_arquivo: string;
-  descricao?: string;
+  caminho_arquivo: string; // URL do Vercel Blob ou link externo
+  descricao: string;
 }
 
 export interface Atividade {
   id_atividade: number;
-  id_aula: number;
+  id_aula: number | null; // Pode ser nulo
   descricao: string;
-  data_entrega: string; // Prazo final para entrega
+  data_entrega: string;
   valor_pontos: number;
-  permite_reenvio: boolean; // Se aluno pode atualizar envio
-  data_limite_acesso?: string; // Quando atividade fica indisponível
+  permite_reenvio: boolean;
+  data_limite_acesso: string | null;
+  // --- CAMPOS NOVOS ADICIONADOS ---
+  unidade?: number; // 1, 2, 3, 4
+  id_turma?: number | null; // Para atividades avulsas
 }
 
 export interface EnvioAtividade {
   id_envio: number;
   id_atividade: number;
   id_aluno: number;
-  arquivo_enviado?: string;
+  arquivo_enviado: string | null; // URL do Vercel Blob
+  resposta: string | null; // (NOVO) Resposta em texto
   data_envio: string;
-  data_atualizacao?: string; // Última atualização do envio
-  nota?: number;
-  comentario_professor?: string;
+  data_atualizacao: string | null;
+  nota: number | null; // Agora é 0-100 (ou o valor_pontos)
+  comentario_professor: string | null;
 }
 
-// Novo sistema de avaliação personalizável
+export interface EnvioAnexo {
+  id_anexo: number;
+  id_envio: number;
+  caminho_arquivo: string;
+  tipo_arquivo: string;
+  data_upload: string;
+}
+
+// --- TIPOS DO BOLETIM ---
+
 export type TipoAvaliacao = 'atividade' | 'caderno' | 'teste' | 'trabalho' | 'prova' | 'outro';
 
 export interface ConfiguracaoAvaliacao {
@@ -84,7 +100,7 @@ export interface ConfiguracaoAvaliacao {
   id_professor: number;
   id_turma: number;
   id_materia: number;
-  unidade: number; // 1, 2, 3, 4 (bimestres/trimestres)
+  unidade: number; // 1, 2, 3, 4
   tipo_avaliacao: TipoAvaliacao;
   peso: number; // Peso percentual (0-100)
   ativo: boolean;
@@ -103,33 +119,16 @@ export interface NotaAvaliacao {
   observacao?: string;
 }
 
-// Interface para cálculo de médias
-export interface MediaAluno {
-  id_aluno: number;
-  id_materia: number;
-  unidade: number;
-  media_parcial: number;
-  media_geral?: number; // Média de todas as unidades
-}
+// --- TIPOS DE GAMIFICAÇÃO / DESEMPENHO ---
 
 export interface Pontuacao {
-  id: number;
+  id_pontuacao: number;
   id_aluno: number;
   pontos_totais: number;
   medalhas: number;
   nivel: number;
 }
 
-// Nova tabela para gerenciar múltiplos anexos
-export interface EnvioAnexo {
-  id_anexo: number;
-  id_envio: number;
-  caminho_arquivo: string;
-  tipo_arquivo: string;
-  data_upload: string;
-}
-
-// Nova tabela para conquistas nomeadas
 export interface Conquista {
   id_conquista: number;
   nome: string;
@@ -138,7 +137,6 @@ export interface Conquista {
   icone: string;
 }
 
-// Relacionamento entre aluno e conquistas
 export interface AlunoConquista {
   id_aluno: number;
   id_conquista: number;

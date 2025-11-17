@@ -1,4 +1,5 @@
 // src/components/Atividades.tsx
+
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, ClipboardList, Calendar, Upload, CheckCircle, Clock, AlertCircle, XCircle, File, X, Loader2 } from 'lucide-react';
 import { Button } from './ui/button';
@@ -11,11 +12,22 @@ import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'sonner';
 import { Atividade } from '../types';
 
-const API_URL = '/api'; // <-- CORRIGIDO PARA VERCEL
+// URL da API (local)
+const API_URL = 'http://localhost:5000/api';
 
 interface AtividadesProps { onBack: () => void; }
-type AtividadeAluno = Atividade & { nome_materia: string; id_envio: number | null; nota: number | null; data_envio: string | null; comentario_professor: string | null; };
-interface ArquivoAnexo { nome: string; tipo: string; tamanho: number; }
+type AtividadeAluno = Atividade & { nome_materia: string | null; id_envio: number | null; nota: number | null; data_envio: string | null; comentario_professor: string | null; };
+interface ArquivoAnexo { nome: string; tipo: string; tamanho: number; base64: string; }
+
+// Helper para converter arquivo para Base64
+const fileToBase64 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = error => reject(error);
+  });
+};
 
 export function Atividades({ onBack }: AtividadesProps) {
   const { token } = useAuth();
@@ -35,31 +47,62 @@ export function Atividades({ onBack }: AtividadesProps) {
     } catch (error: any) { toast.error(error.message); } finally { setIsLoading(false); }
   };
   useEffect(() => { if (token) { fetchAtividades(); } }, [token]);
-  
+
   const getStatusBadge = (atividade: AtividadeAluno) => {
-    if (atividade.nota !== null) { return <Badge className="bg-green-100 text-green-700">Nota: {atividade.nota.toFixed(1)}/10</Badge>; }
+    if (atividade.nota !== null) { 
+      const notaFloat = parseFloat(atividade.nota as any);
+      return <Badge className="bg-green-100 text-green-700">Nota: {notaFloat} / {atividade.valor_pontos}</Badge>; 
+    }
     if (atividade.id_envio) { return <Badge className="bg-blue-100 text-blue-700">Enviado</Badge>; }
     const hoje = new Date(); const limite = new Date(atividade.data_entrega);
     if (hoje > limite) { return <Badge variant="destructive">Atrasado</Badge>; }
     return <Badge variant="secondary">Pendente</Badge>;
   };
   const getDiasRestantes = (dataLimite: string) => { const hoje = new Date(); const limite = new Date(dataLimite); const diff = Math.ceil((limite.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24)); return diff; };
-  const handleArquivosSelecionados = (e: React.ChangeEvent<HTMLInputElement>) => {
+  
+  const handleArquivosSelecionados = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files) {
-      const novosArquivos: ArquivoAnexo[] = Array.from(files).map(file => ({ nome: file.name, tipo: file.type, tamanho: file.size }));
-      setArquivos(prev => [...prev, ...novosArquivos]); toast.success(`${novosArquivos.length} arquivo(s) adicionado(s)`);
+      if (files.length > 1) { toast.error('Você só pode enviar um arquivo por vez.'); return; }
+      const file = files[0];
+      if (file.size > 10 * 1024 * 1024) { toast.error(`Arquivo ${file.name} é muito grande! (Limite: 10MB)`); return; }
+      const base64 = await fileToBase64(file);
+      setArquivos([{ nome: file.name, tipo: file.type, tamanho: file.size, base64: base64 }]);
+      toast.success(`Arquivo "${file.name}" adicionado.`);
     }
   };
   const handleRemoverArquivo = (index: number) => { setArquivos(prev => prev.filter((_, i) => i !== index)); toast.info('Arquivo removido'); };
   const formatarTamanho = (bytes: number) => { if (bytes < 1024) return bytes + ' B'; if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'; return (bytes / (1024 * 1024)).toFixed(1) + ' MB'; };
+
   const handleEnviar = async (id_atividade: number) => {
-    if (!resposta.trim() && arquivos.length === 0) { toast.error('Por favor, escreva sua resposta ou anexe ao menos um arquivo'); return; }
+    if (!resposta.trim() && arquivos.length === 0) { toast.error('Escreva sua resposta ou anexe um arquivo'); return; }
     setIsSubmitting(true);
+    let arquivoUrl = null;
     try {
-      const response = await fetch(`${API_URL}/atividades/envios`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ id_atividade, resposta_texto: resposta, arquivos }) });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message);
+      if (arquivos.length > 0) {
+        const arquivo = arquivos[0];
+        const pathname = `envios/atividade_${id_atividade}/${arquivo.nome}`;
+        const response = await fetch(`${API_URL}/upload/upload`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ filename: pathname, data: arquivo.base64, contentType: arquivo.tipo }),
+        });
+        const blob = await response.json();
+        if (!response.ok) throw new Error(blob.error || `Falha no upload de ${arquivo.nome}`);
+        arquivoUrl = blob.url; 
+      }
+      
+      const responseEnvio = await fetch(`${API_URL}/atividades/envios`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({
+          id_atividade: id_atividade,
+          resposta_texto: resposta,
+          arquivo_url: arquivoUrl 
+        })
+      });
+      const data = await responseEnvio.json();
+      if (!responseEnvio.ok) throw new Error(data.message);
       toast.success(`Atividade enviada com sucesso!`);
       setSelectedAtividade(null); setResposta(''); setArquivos([]); fetchAtividades(); 
     } catch (error: any) { toast.error(error.message); } finally { setIsSubmitting(false); }
@@ -71,10 +114,14 @@ export function Atividades({ onBack }: AtividadesProps) {
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {isLoading ? (<div className="flex justify-center items-center py-20"><Loader2 className="w-12 h-12 animate-spin text-primary" /></div>) : (
           <div className="space-y-4">{atividades.map((atividade) => { const diasRestantes = getDiasRestantes(atividade.data_entrega); const isExpanded = selectedAtividade === atividade.id_atividade; const podeReenviar = atividade.permite_reenvio || !atividade.id_envio; return (
-            <Card key={atividade.id_atividade}><CardHeader><div className="flex items-start justify-between gap-4"><div className="flex-1"><div className="flex items-center gap-2 mb-2"><Badge variant="outline">{atividade.nome_materia}</Badge>{getStatusBadge(atividade)}</div><CardTitle>{atividade.descricao}</CardTitle><CardDescription className="mt-2">Valor: {atividade.valor_pontos} pontos (gamificação)</CardDescription><div className="flex items-center gap-4 mt-3 text-sm text-muted-foreground"><div className="flex items-center gap-1"><Calendar className="w-4 h-4" />Prazo: {new Date(atividade.data_entrega).toLocaleDateString('pt-BR')}</div>{diasRestantes >= 0 && !atividade.id_envio && (<Badge variant="secondary">{diasRestantes} {diasRestantes === 1 ? 'dia restante' : 'dias restantes'}</Badge>)}</div></div></div></CardHeader>
+            <Card key={atividade.id_atividade}><CardHeader><div className="flex items-start justify-between gap-4"><div className="flex-1"><div className="flex items-center gap-2 mb-2">
+              {/* --- CORREÇÃO AQUI --- */}
+              <Badge variant="outline">{atividade.nome_materia || 'Atividade Avulsa'}</Badge>
+              {getStatusBadge(atividade)}
+            </div><CardTitle>{atividade.descricao}</CardTitle><CardDescription className="mt-2">Valor: {atividade.valor_pontos} pontos</CardDescription><div className="flex items-center gap-4 mt-3 text-sm text-muted-foreground"><div className="flex items-center gap-1"><Calendar className="w-4 h-4" />Prazo: {new Date(atividade.data_entrega).toLocaleDateString('pt-BR')}</div>{diasRestantes >= 0 && !atividade.id_envio && (<Badge variant="secondary">{diasRestantes} {diasRestantes === 1 ? 'dia restante' : 'dias restantes'}</Badge>)}</div></div></div></CardHeader>
               <CardContent>
-                {atividade.id_envio && !isExpanded && (<div className="bg-muted p-4 rounded-lg space-y-3">{atividade.data_envio && (<div><p className="text-sm text-muted-foreground">Enviado em:</p><p className="mt-1">{new Date(atividade.data_envio).toLocaleString('pt-BR')}</p></div>)}{atividade.nota !== null && (<div><p className="text-sm text-muted-foreground">Nota:</p><p className="mt-1 text-lg font-bold">{atividade.nota.toFixed(1)} / 10.0</p></div>)}{atividade.comentario_professor && (<div><p className="text-sm text-muted-foreground">Observação do professor:</p><p className="mt-1 italic">"{atividade.comentario_professor}"</p></div>)}{podeReenviar && (<Button className="w-full" variant="outline" onClick={() => setSelectedAtividade(atividade.id_atividade)}><Upload className="w-4 h-4 mr-2" />{atividade.permite_reenvio ? "Enviar novamente" : "Responder"}</Button>)}</div>)}
-                {(!atividade.id_envio || isExpanded) && (isExpanded ? (<div className="space-y-4"><div><Label htmlFor="resposta">Sua Resposta (opcional)</Label><Textarea id="resposta" placeholder="Digite sua resposta aqui..." rows={5} value={resposta} onChange={(e) => setResposta(e.target.value)} className="mt-2" disabled={isSubmitting} /></div><div><Label htmlFor="arquivo">Anexar Arquivos</Label><Input id="arquivo" type="file" multiple onChange={handleArquivosSelecionados} className="mt-2" disabled={isSubmitting} /></div>{arquivos.length > 0 && (<div className="space-y-2"><Label>Arquivos Selecionados ({arquivos.length})</Label>{arquivos.map((arquivo, index) => (<div key={index} className="flex items-center gap-2 p-3 bg-muted rounded-lg"><File className="w-4 h-4 text-blue-600" /><div className="flex-1 min-w-0"><p className="text-sm truncate">{arquivo.nome}</p><p className="text-xs text-muted-foreground">{formatarTamanho(arquivo.tamanho)}</p></div><Button variant="ghost" size="icon" onClick={() => handleRemoverArquivo(index)} className="h-8 w-8" disabled={isSubmitting}><X className="w-4 h-4" /></Button></div>))}</div>)}<div className="flex gap-2"><Button onClick={() => handleEnviar(atividade.id_atividade)} className="flex-1" disabled={isSubmitting}>{isSubmitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}{atividade.id_envio ? "Enviar Correção" : "Enviar Resposta"}</Button><Button variant="outline" onClick={() => setSelectedAtividade(null)} disabled={isSubmitting}>Cancelar</Button></div></div>) : (<Button className="w-full" onClick={() => setSelectedAtividade(atividade.id_atividade)} disabled={!podeReenviar}><ClipboardList className="w-4 h-4 mr-2" />Responder Atividade</Button>))}
+                {atividade.id_envio && !isExpanded && (<div className="bg-muted p-4 rounded-lg space-y-3">{atividade.data_envio && (<div><p className="text-sm text-muted-foreground">Enviado em:</p><p className="mt-1">{new Date(atividade.data_envio).toLocaleString('pt-BR')}</p></div>)}{atividade.nota !== null && (<div><p className="text-sm text-muted-foreground">Nota:</p><p className="mt-1 text-lg font-bold">{parseFloat(atividade.nota as any)} / {atividade.valor_pontos}</p></div>)}{atividade.comentario_professor && (<div><p className="text-sm text-muted-foreground">Observação do professor:</p><p className="mt-1 italic">"{atividade.comentario_professor}"</p></div>)}{podeReenviar && (<Button className="w-full" variant="outline" onClick={() => setSelectedAtividade(atividade.id_atividade)}><Upload className="w-4 h-4 mr-2" />{atividade.permite_reenvio ? "Enviar novamente" : "Responder"}</Button>)}</div>)}
+                {(!atividade.id_envio || isExpanded) && (isExpanded ? (<div className="space-y-4"><div><Label htmlFor="resposta">Sua Resposta (opcional)</Label><Textarea id="resposta" placeholder="Digite sua resposta aqui..." rows={5} value={resposta} onChange={(e) => setResposta(e.target.value)} className="mt-2" disabled={isSubmitting} /></div><div><Label htmlFor="arquivo">Anexar Arquivo (Opcional, 1 arquivo, máx 10MB)</Label><Input id="arquivo" type="file" onChange={handleArquivosSelecionados} className="mt-2" disabled={isSubmitting} /></div>{arquivos.length > 0 && (<div className="space-y-2"><Label>Arquivo Selecionado</Label>{arquivos.map((arquivo, index) => (<div key={index} className="flex items-center gap-2 p-3 bg-muted rounded-lg"><File className="w-4 h-4 text-blue-600" /><div className="flex-1 min-w-0"><p className="text-sm truncate">{arquivo.nome}</p><p className="text-xs text-muted-foreground">{formatarTamanho(arquivo.tamanho)}</p></div><Button variant="ghost" size="icon" onClick={() => handleRemoverArquivo(index)} className="h-8 w-8" disabled={isSubmitting}><X className="w-4 h-4" /></Button></div>))}</div>)}<div className="flex gap-2"><Button onClick={() => handleEnviar(atividade.id_atividade)} className="flex-1" disabled={isSubmitting}>{isSubmitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}{atividade.id_envio ? "Enviar Correção" : "Enviar Resposta"}</Button><Button variant="outline" onClick={() => setSelectedAtividade(null)} disabled={isSubmitting}>Cancelar</Button></div></div>) : (<Button className="w-full" onClick={() => setSelectedAtividade(atividade.id_atividade)} disabled={!podeReenviar}><ClipboardList className="w-4 h-4 mr-2" />Responder Atividade</Button>))}
               </CardContent>
             </Card>
           );})}</div>
